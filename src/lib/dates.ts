@@ -32,6 +32,14 @@ export function daysInCurrentStage(
   return Math.max(0, Math.round(diff / MS_PER_DAY));
 }
 
+/** Format a Date as local YYYY-MM-DD (for lexicographic SQL comparison). */
+export function toLocalIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** True when a follow-up date exists and is today or earlier. */
 export function isFollowUpDue(followUpDate: string | null, today: Date): boolean {
   if (!followUpDate) return false;
