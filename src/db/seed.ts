@@ -1,10 +1,32 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { count } from "drizzle-orm";
 import type { DB } from "@/db/client";
-import { jobs } from "@/db/schema";
+import { jobs, watchlist } from "@/db/schema";
 import { jobCreateSchema } from "@/lib/schemas";
 import { createJob } from "@/server/jobs";
+
+/** Pipeline companies on public ATS APIs (per the build brief). */
+const WATCHLIST_SEED = [
+  { displayName: "Platform Science", atsType: "greenhouse", boardSlug: "platformscience" },
+  { displayName: "Babylist", atsType: "greenhouse", boardSlug: "babylist" },
+  { displayName: "PrizePicks", atsType: "greenhouse", boardSlug: "prizepicks" },
+  { displayName: "Ava Labs", atsType: "greenhouse", boardSlug: "avalabs" },
+  { displayName: "Talkiatry", atsType: "ashby", boardSlug: "talkiatry" },
+] as const;
+
+/** Seed the discovery watchlist once; users manage it in Settings afterwards. */
+export function seedWatchlistIfEmpty(db: DB): { imported: number } {
+  const existing = db.select({ n: count() }).from(watchlist).get();
+  if ((existing?.n ?? 0) > 0) return { imported: 0 };
+  for (const entry of WATCHLIST_SEED) {
+    db.insert(watchlist)
+      .values({ id: randomUUID(), enabled: true, ...entry })
+      .run();
+  }
+  return { imported: WATCHLIST_SEED.length };
+}
 
 export function defaultSeedPath(): string {
   return (
