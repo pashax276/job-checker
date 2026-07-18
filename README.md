@@ -20,12 +20,11 @@ First boot applies migrations and imports `data/jobs_seed.json` (53 jobs) into
 the empty database, plus five watchlist companies for discovery. Data lives in
 the `tracker-data` volume and survives `docker compose down && up`.
 
-> **⚠️ The bundled seed is synthetic placeholder data** (the real export was
-> not available at build time — see `data/README.md`). To load your real
-> tracker: either replace `data/jobs_seed.json` **before first boot** (or
-> `docker compose down -v` to reset), or just boot and use **Import** to
-> upload your original `Job_Application_Tracker.xlsx` — 53 duplicates will be
-> flagged with per-row skip/update choices.
+> The seed is the real tracker export (see `data/README.md` for the accepted
+> formats). To load a newer export: replace `data/jobs_seed.json`, then
+> `docker compose down -v && docker compose up -d --build` — or keep the
+> existing database and use **Import** in the UI, which flags duplicates with
+> per-row skip/update choices.
 
 ## Everyday use
 
