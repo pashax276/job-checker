@@ -2,6 +2,8 @@
 
 import {
   Columns3,
+  Download,
+  FileUp,
   Inbox,
   LayoutDashboard,
   Moon,
@@ -16,7 +18,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import { AddJobDialog } from "@/components/add-job-dialog";
+import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
 
@@ -149,6 +159,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           </div>
           <div className="flex-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileUp className="size-3.5" aria-hidden />
+            Import
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" />
+              }
+            >
+              <Download className="size-3.5" aria-hidden />
+              Export
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-xs"
+                onClick={() => (window.location.href = "/api/export?format=xlsx")}
+              >
+                Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs"
+                onClick={() => (window.location.href = "/api/export?format=json")}
+              >
+                JSON (.json)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs"
+                onClick={() => (window.location.href = "/api/export/ics")}
+              >
+                Follow-up calendar (.ics)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button size="sm" className="h-8 gap-1.5" onClick={() => setAddOpen(true)}>
             <Plus className="size-3.5" aria-hidden />
             New job
@@ -161,6 +210,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <AddJobDialog open={addOpen} onOpenChange={setAddOpen} />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
