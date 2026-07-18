@@ -1,0 +1,121 @@
+"use client";
+
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@/lib/api-client";
+import type { Job, JobDetail, JobsQuery, Stats } from "@/lib/types";
+
+export const jobKeys = {
+  all: ["jobs"] as const,
+  list: (qs: string) => ["jobs", "list", qs] as const,
+  detail: (id: string) => ["jobs", "detail", id] as const,
+  stats: ["stats"] as const,
+};
+
+export function queryString(query: JobsQuery): string {
+  const params = new URLSearchParams();
+  if (query.status) params.set("status", query.status);
+  if (query.tier) params.set("tier", query.tier);
+  if (query.q) params.set("q", query.q);
+  if (query.dueOnly) params.set("dueOnly", "true");
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
+export function useJobs(query: JobsQuery = {}) {
+  const qs = queryString(query);
+  return useQuery({
+    queryKey: jobKeys.list(qs),
+    queryFn: () => api<Job[]>(`/api/jobs${qs}`),
+  });
+}
+
+export function useJob(id: string | null) {
+  return useQuery({
+    queryKey: jobKeys.detail(id ?? "none"),
+    queryFn: () => api<JobDetail>(`/api/jobs/${id}`),
+    enabled: id !== null,
+  });
+}
+
+export function useStats() {
+  return useQuery({
+    queryKey: jobKeys.stats,
+    queryFn: () => api<Stats>("/api/stats"),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useCreateJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<Job>) =>
+      api<Job>("/api/jobs", { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: (job) => {
+      toast.success(`Added ${job.company} — ${job.role}`);
+      void qc.invalidateQueries({ queryKey: jobKeys.all });
+      void qc.invalidateQueries({ queryKey: jobKeys.stats });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export interface JobPatchArgs {
+  id: string;
+  patch: Partial<Job>;
+}
+
+/** PATCH with optimistic list/detail updates and rollback on API error. */
+export function useUpdateJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: JobPatchArgs) =>
+      api<Job>(`/api/jobs/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+    onMutate: async ({ id, patch }: JobPatchArgs) => {
+      await qc.cancelQueries({ queryKey: jobKeys.all });
+      const previous = qc.getQueriesData<Job[] | JobDetail>({
+        queryKey: jobKeys.all,
+      });
+      qc.setQueriesData<Job[]>(
+        { queryKey: ["jobs", "list"] },
+        (old) =>
+          old?.map((job) => (job.id === id ? { ...job, ...patch } : job)),
+      );
+      qc.setQueryData<JobDetail>(jobKeys.detail(id), (old) =>
+        old ? { ...old, ...patch } : old,
+      );
+      return { previous };
+    },
+    onError: (err: Error, _vars, context) => {
+      for (const [key, data] of context?.previous ?? []) {
+        qc.setQueryData(key, data);
+      }
+      toast.error(`Update failed: ${err.message}`);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: jobKeys.all });
+      void qc.invalidateQueries({ queryKey: jobKeys.stats });
+    },
+  });
+}
+
+export function useDeleteJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ deleted: string }>(`/api/jobs/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Job deleted");
+      void qc.invalidateQueries({ queryKey: jobKeys.all });
+      void qc.invalidateQueries({ queryKey: jobKeys.stats });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}

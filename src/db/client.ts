@@ -30,7 +30,6 @@ export function migrateDb(db: DB): void {
 }
 
 let singleton: DB | null = null;
-let migrated = false;
 
 /** Lazily opened process-wide handle; migrations run once via runMigrations(). */
 export function getDb(): DB {
@@ -42,15 +41,21 @@ export function getDb(): DB {
 
 export function runMigrations(): void {
   migrateDb(getDb());
-  migrated = true;
 }
 
-/** Readiness signal: DB handle open and migrations applied. */
+/**
+ * Readiness signal: DB open and migrated. Checked against the database itself
+ * (not an in-process flag) because Next bundles instrumentation and route
+ * handlers into separate module graphs that don't share module state.
+ */
 export function isDbReady(): boolean {
-  if (!migrated) return false;
   try {
-    getDb().$client.prepare("SELECT 1").get();
-    return true;
+    const row = getDb()
+      .$client.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'",
+      )
+      .get();
+    return row !== undefined;
   } catch {
     return false;
   }
