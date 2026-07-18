@@ -1,0 +1,17 @@
+services:
+  tracker:
+    build: .
+    ports: ["3000:3000"]
+    volumes: ["tracker-data:/data"]
+    environment:
+      - DATABASE_PATH=/data/tracker.db
+      # Discovery scheduler (in-process cron). 0 14 * * * UTC = 7:00 AM Pacific.
+      - DISCOVERY_ENABLED=${DISCOVERY_ENABLED:-false}
+      - DISCOVERY_CRON=${DISCOVERY_CRON:-0 14 * * *}
+      # Optional basic auth (off unless both are set)
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER:-}
+      - BASIC_AUTH_PASS=${BASIC_AUTH_PASS:-}
+    restart: unless-stopped
+
+volumes:
+  tracker-data:

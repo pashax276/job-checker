@@ -1,0 +1,17 @@
+.git
+.next
+node_modules
+npm-debug.log
+data/*.db
+data/*.db-*
+e2e/.tmp
+test-results
+playwright-report
+coverage
+charts
+argocd
+docs
+*.md
+!data/README.md
+.env
+.env.local
