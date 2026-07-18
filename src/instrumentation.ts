@@ -8,10 +8,11 @@ export async function register(): Promise<void> {
 
   const { getDb, runMigrations } = await import("@/db/client");
   const { seedIfEmpty } = await import("@/db/seed");
+  const { log } = await import("@/lib/log");
 
   runMigrations();
   const { imported } = seedIfEmpty(getDb());
   if (imported > 0) {
-    console.log(`[seed] first run: imported ${imported} jobs from seed file`);
+    log.info(`first run: imported ${imported} jobs from seed file`);
   }
 }

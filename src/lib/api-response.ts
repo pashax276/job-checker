@@ -2,18 +2,18 @@ import type { ZodError } from "zod";
 
 /** Consistent JSON envelope for every API response. */
 export interface ApiEnvelope<T> {
-  ok: boolean;
+  success: boolean;
   data: T | null;
   error: string | null;
 }
 
 export function apiOk<T>(data: T, status = 200): Response {
-  const body: ApiEnvelope<T> = { ok: true, data, error: null };
+  const body: ApiEnvelope<T> = { success: true, data, error: null };
   return Response.json(body, { status });
 }
 
 export function apiError(error: string, status: number): Response {
-  const body: ApiEnvelope<never> = { ok: false, data: null, error };
+  const body: ApiEnvelope<never> = { success: false, data: null, error };
   return Response.json(body, { status });
 }
 

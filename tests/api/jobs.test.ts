@@ -6,7 +6,7 @@ import * as statsRoute from "@/app/api/stats/route";
 import * as healthzRoute from "@/app/healthz/route";
 import * as readyzRoute from "@/app/readyz/route";
 
-type Envelope<T> = { ok: boolean; data: T; error: string | null };
+type Envelope<T> = { success: boolean; data: T; error: string | null };
 
 const post = (body: unknown) =>
   jobsRoute.POST(
@@ -44,7 +44,7 @@ describe("POST /api/jobs", () => {
     const res = await post({ company: "Acme", role: "Senior SRE" });
     expect(res.status).toBe(201);
     const body = (await res.json()) as Envelope<{ id: string; status: string }>;
-    expect(body.ok).toBe(true);
+    expect(body.success).toBe(true);
     expect(body.error).toBeNull();
     expect(body.data.status).toBe("Evaluating");
   });
@@ -53,7 +53,7 @@ describe("POST /api/jobs", () => {
     const res = await post({ role: "No company" });
     expect(res.status).toBe(400);
     const body = (await res.json()) as Envelope<null>;
-    expect(body.ok).toBe(false);
+    expect(body.success).toBe(false);
     expect(body.error).toMatch(/company/i);
   });
 });
