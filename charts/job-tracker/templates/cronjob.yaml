@@ -1,0 +1,41 @@
+{{- if .Values.discovery.cronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "job-tracker.fullname" . }}-discovery
+  labels:
+    {{- include "job-tracker.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.discovery.cronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "job-tracker.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: discovery
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: trigger
+              image: {{ .Values.discovery.cronJob.image }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              # POST /api/discovery/run is idempotent — safe to re-run.
+              args:
+                - -sf
+                - -X
+                - POST
+                - http://{{ include "job-tracker.fullname" . }}:{{ .Values.service.port }}/api/discovery/run
+{{- end }}

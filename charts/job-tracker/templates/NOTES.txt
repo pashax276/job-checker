@@ -1,0 +1,22 @@
+{{ include "job-tracker.fullname" . }} deployed.
+
+Access it:
+  kubectl port-forward svc/{{ include "job-tracker.fullname" . }} 3000:{{ .Values.service.port }}
+  open http://localhost:3000
+
+IMPORTANT — single replica by design:
+  SQLite lives on the PVC mounted at /data. This chart pins replicas to 1 with
+  a Recreate strategy; scaling out would corrupt the database. If you ever
+  need multiple replicas, migrate to Postgres first (see repo README).
+
+Discovery scheduling:
+{{- if .Values.discovery.cronJob.enabled }}
+  Cluster CronJob "{{ include "job-tracker.fullname" . }}-discovery"
+  ({{ .Values.discovery.cronJob.schedule }}) POSTs /api/discovery/run.
+  The in-process cron is forced off in this mode.
+{{- else if .Values.discovery.inProcess }}
+  In-process cron enabled ({{ .Values.discovery.cron }}).
+{{- else }}
+  Disabled. Enable discovery.cronJob.enabled (preferred on Kubernetes) or
+  discovery.inProcess, or use "Run discovery now" in Settings.
+{{- end }}

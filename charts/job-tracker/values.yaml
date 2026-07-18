@@ -1,0 +1,66 @@
+# -- Container image. CI pushes to GHCR on main; set repository to your fork's
+# -- registry path, or to docker.io/library/job-checker-tracker with
+# -- pullPolicy Never for a `kind load docker-image` workflow.
+image:
+  repository: ghcr.io/OWNER/job-checker
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# -- SQLite lives on a PVC, so this app is strictly single-replica with a
+# -- Recreate strategy (two pods would corrupt the database). Replicas is
+# -- deliberately not configurable.
+service:
+  type: ClusterIP
+  port: 3000
+
+persistence:
+  # -- Size of the /data volume holding tracker.db
+  size: 1Gi
+  # -- "" uses the cluster's default StorageClass
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+ingress:
+  # -- Gate the Ingress entirely; ClusterIP + port-forward works without it
+  enabled: false
+  # -- e.g. nginx, traefik
+  className: ""
+  host: tracker.local
+  annotations: {}
+  # -- Standard networking.k8s.io TLS block
+  tls: []
+
+basicAuth:
+  # -- Off by default (single user behind cluster ingress)
+  enabled: false
+  username: ""
+  password: ""
+  # -- Name of an existing Secret with keys BASIC_AUTH_USER / BASIC_AUTH_PASS;
+  # -- takes precedence over the inline username/password above
+  existingSecret: ""
+
+# -- Extra non-secret environment variables rendered into the ConfigMap
+extraEnv: {}
+
+discovery:
+  # -- In-process node-cron scheduler inside the app container (the Docker
+  # -- path). Prefer the CronJob below on Kubernetes; if cronJob.enabled is
+  # -- true this flag is ignored and the in-process cron stays off.
+  inProcess: false
+  # -- Cron expression for the in-process scheduler (UTC)
+  cron: "0 14 * * *"
+  cronJob:
+    # -- Cluster-native scheduling: a CronJob POSTs /api/discovery/run
+    # -- (idempotent) against the Service.
+    enabled: false
+    schedule: "0 14 * * *"
+    image: curlimages/curl:8.10.1

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "job-tracker.fullname" . }}
+  labels:
+    {{- include "job-tracker.labels" . | nindent 4 }}
+data:
+  DATABASE_PATH: /data/tracker.db
+  # In-process cron only when explicitly requested AND the CronJob is off —
+  # the two schedulers must never both run.
+  {{- if and .Values.discovery.inProcess (not .Values.discovery.cronJob.enabled) }}
+  DISCOVERY_ENABLED: "true"
+  {{- else }}
+  DISCOVERY_ENABLED: "false"
+  {{- end }}
+  DISCOVERY_CRON: {{ .Values.discovery.cron | quote }}
+  {{- range $key, $value := .Values.extraEnv }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

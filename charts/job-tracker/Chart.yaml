@@ -1,0 +1,6 @@
+apiVersion: v2
+name: job-tracker
+description: Self-hosted job application pipeline tracker (Next.js + SQLite)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
