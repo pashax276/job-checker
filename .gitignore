@@ -52,3 +52,4 @@ data/*.db-*
 test-results/
 playwright-report/
 coverage/
+e2e/.tmp/
