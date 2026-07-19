@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowRight, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { DueBadge, StatusBadge, TierBadge } from "@/components/badges";
 import {
   AlertDialog,
@@ -37,12 +38,14 @@ import {
   isFollowUpDue,
   toLocalIsoDate,
 } from "@/lib/dates";
+import { followUpEmail } from "@/lib/follow-up-email";
 import {
   jobToFormValues,
   validateJobForm,
   type JobFormErrors,
   type JobFormValues,
 } from "@/lib/job-form";
+import { cn } from "@/lib/utils";
 import { jobPatchSchema } from "@/lib/schemas";
 import { SCHEDULABLE_STAGES } from "@/lib/constants";
 import type {
@@ -66,6 +69,15 @@ function formatStamp(iso: string): string {
   });
 }
 
+const CONTACT_ROLES = [
+  "Recruiter",
+  "HR",
+  "Hiring Manager",
+  "Director of Engineering",
+  "Engineer",
+  "Founder",
+];
+
 function ContactsSection({
   jobId,
   contacts,
@@ -75,7 +87,9 @@ function ContactsSection({
 }) {
   const { addContact, touchContact, removeContact } = useJobExtras(jobId);
   const [name, setName] = useState("");
+  const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   return (
     <div className="space-y-1.5">
@@ -99,6 +113,14 @@ function ContactsSection({
                 className="block truncate text-muted-foreground hover:text-primary hover:underline"
               >
                 {contact.email}
+              </a>
+            ) : null}
+            {contact.phone ? (
+              <a
+                href={`tel:${contact.phone}`}
+                className="font-data block truncate text-muted-foreground hover:text-primary hover:underline"
+              >
+                {contact.phone}
               </a>
             ) : null}
           </span>
@@ -131,16 +153,23 @@ function ContactsSection({
         </div>
       ))}
       <form
-        className="flex gap-2"
+        className="grid grid-cols-2 gap-1.5"
         onSubmit={(e) => {
           e.preventDefault();
           if (!name.trim()) return;
           addContact.mutate(
-            { name: name.trim(), ...(email.trim() ? { email: email.trim() } : {}) },
+            {
+              name: name.trim(),
+              ...(role.trim() ? { role: role.trim() } : {}),
+              ...(email.trim() ? { email: email.trim() } : {}),
+              ...(phone.trim() ? { phone: phone.trim() } : {}),
+            },
             {
               onSuccess: () => {
                 setName("");
+                setRole("");
                 setEmail("");
+                setPhone("");
               },
             },
           );
@@ -148,26 +177,51 @@ function ContactsSection({
       >
         <Input
           placeholder="Name"
+          aria-label="Contact name"
           className="h-7 text-xs"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <Input
+          placeholder="Position — HR, Director of Eng…"
+          aria-label="Contact position"
+          list="contact-roles"
+          className="h-7 text-xs"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+        />
+        <datalist id="contact-roles">
+          {CONTACT_ROLES.map((r) => (
+            <option key={r} value={r} />
+          ))}
+        </datalist>
+        <Input
           placeholder="Email (optional)"
+          aria-label="Contact email"
           type="email"
           className="h-7 text-xs"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Button
-          type="submit"
-          size="sm"
-          variant="outline"
-          className="h-7 shrink-0 text-xs"
-          disabled={addContact.isPending || !name.trim()}
-        >
-          Add
-        </Button>
+        <div className="flex gap-1.5">
+          <Input
+            placeholder="Phone (optional)"
+            aria-label="Contact phone"
+            type="tel"
+            className="h-7 text-xs"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="h-7 shrink-0 text-xs"
+            disabled={addContact.isPending || !name.trim()}
+          >
+            Add
+          </Button>
+        </div>
       </form>
     </div>
   );
@@ -218,6 +272,62 @@ function ScheduleSection({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function FollowUpEmailSection({ job }: { job: JobDetail }) {
+  const [expanded, setExpanded] = useState(false);
+  const contactName = job.contacts[0]?.name.split(" ")[0] ?? null;
+  const draft = followUpEmail(job, contactName);
+  const due = isFollowUpDue(job.followUpDate, new Date());
+
+  const copy = () => {
+    void navigator.clipboard.writeText(
+      `Subject: ${draft.subject}\n\n${draft.body}`,
+    );
+    toast.success("Follow-up email copied");
+  };
+
+  return (
+    <div className="space-y-1.5 rounded-md border p-2.5">
+      <div className="flex items-center gap-2">
+        {due ? <DueBadge /> : null}
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+          {draft.subject}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 gap-1 text-[10px]"
+          onClick={copy}
+        >
+          <Copy className="size-3" aria-hidden />
+          Copy
+        </Button>
+      </div>
+      <button
+        type="button"
+        className="w-full text-left"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <p
+          className={cn(
+            "text-xs whitespace-pre-wrap text-muted-foreground",
+            !expanded && "line-clamp-3",
+          )}
+        >
+          {draft.body}
+        </p>
+        <span className="text-[10px] text-primary">
+          {expanded ? "collapse" : "expand"}
+        </span>
+      </button>
+      <p className="text-[10px] text-muted-foreground">
+        Matched to the current status
+        {contactName ? `, addressed to ${contactName}` : ""} — tweak before
+        sending.
+      </p>
     </div>
   );
 }
@@ -425,6 +535,7 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                 errors={errors}
                 onChange={set}
                 idPrefix="edit"
+                hiddenFields={["dateApplied"]}
               />
               <div className="flex items-center justify-between pt-1">
                 <AlertDialog>
@@ -504,6 +615,12 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                   Contacts
                 </h3>
                 <ContactsSection jobId={job.id} contacts={job.contacts} />
+              </div>
+              <div className="space-y-2 p-4 pb-0">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Follow-up email
+                </h3>
+                <FollowUpEmailSection job={job} />
               </div>
               <div className="space-y-2 p-4">
                 <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

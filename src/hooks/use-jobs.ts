@@ -116,7 +116,12 @@ export function useJobExtras(jobId: string | null) {
   const onError = (err: Error) => toast.error(err.message);
 
   const addContact = useMutation({
-    mutationFn: (input: { name: string; email?: string; role?: string }) =>
+    mutationFn: (input: {
+      name: string;
+      email?: string;
+      role?: string;
+      phone?: string;
+    }) =>
       api(`/api/jobs/${jobId}/contacts`, {
         method: "POST",
         body: JSON.stringify(input),

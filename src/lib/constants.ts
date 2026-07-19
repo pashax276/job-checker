@@ -49,6 +49,7 @@ export const LOOP_STATUSES: readonly Status[] = [
 
 // Steps that can be booked to a calendar date.
 export const SCHEDULABLE_STAGES = [
+  "Applied",
   "Screen",
   "Assessment",
   "HM Interview",

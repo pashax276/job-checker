@@ -148,13 +148,15 @@ export function StageJourney({
               >
                 {SHORT_LABEL[status]}
               </span>
-              {active && days !== null ? (
-                <span className="font-data w-full truncate text-[10px] text-muted-foreground">
-                  {days}d
-                </span>
-              ) : schedule[status] ? (
+              {/* Booked dates are ground truth for when a step happened/happens;
+                  fall back to days-in-stage from history stamps. */}
+              {schedule[status] ? (
                 <span className="font-data w-full truncate text-[10px] text-primary">
                   {schedule[status]!.slice(5).replace("-", "/")}
+                </span>
+              ) : active && days !== null ? (
+                <span className="font-data w-full truncate text-[10px] text-muted-foreground">
+                  {days}d
                 </span>
               ) : null}
             </li>

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, isNotNull, like, lte, or, type SQL } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import {
+  documents,
   jobs,
   statusHistory,
   type ActivityRecord,
@@ -39,6 +40,11 @@ export function createJob(db: DB, input: JobCreate, now = new Date()): JobRecord
     notes: input.notes,
     postingUrl: input.postingUrl,
     resumeVersion: input.resumeVersion,
+    compBase: input.compBase,
+    compBonus: input.compBonus,
+    compEquity: input.compEquity,
+    resumeId: input.resumeId,
+    coverLetterId: input.coverLetterId,
     createdAt: stamp,
     updatedAt: stamp,
   };
@@ -85,7 +91,20 @@ export function updateJob(
   return db.transaction((tx) => {
     const current = tx.select().from(jobs).where(eq(jobs.id, id)).get();
     if (!current) return null;
-    const next = { ...current, ...patch, updatedAt: stamp };
+    // Assigning a resume mirrors its version label into resumeVersion so the
+    // table/export keep working without joins.
+    let resumeVersionSync: { resumeVersion: string | null } | undefined;
+    if (patch.resumeId !== undefined) {
+      const doc = patch.resumeId
+        ? tx
+            .select({ name: documents.name })
+            .from(documents)
+            .where(eq(documents.id, patch.resumeId))
+            .get()
+        : null;
+      resumeVersionSync = { resumeVersion: doc?.name ?? null };
+    }
+    const next = { ...current, ...patch, ...resumeVersionSync, updatedAt: stamp };
     tx.update(jobs).set(next).where(eq(jobs.id, id)).run();
     if (patch.status !== undefined && patch.status !== current.status) {
       tx.insert(statusHistory)

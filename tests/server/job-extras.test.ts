@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import os from "node:os";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, migrateDb, type DB } from "@/db/client";
 import { activityCreateSchema, contactCreateSchema } from "@/lib/schemas";
@@ -118,6 +120,93 @@ describe("stage schedule", () => {
       .prepare("SELECT COUNT(*) AS n FROM stage_schedule")
       .get() as { n: number };
     expect(rows.n).toBe(0);
+  });
+});
+
+describe("documents", () => {
+  const tmpDir = () => {
+    const dir = `${os.tmpdir()}/docs-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  };
+
+  it("stores the file, extracts bullets and skills, and lists by kind", async () => {
+    const { createDocument, listDocuments } = await import("@/server/documents");
+    const dir = tmpDir();
+    const doc = await createDocument(
+      db,
+      {
+        kind: "resume",
+        name: "v3-platform",
+        fileName: "resume.txt",
+        mimeType: "text/plain",
+        data: Buffer.from("• Built EKS platform on AWS\n• Terraform everywhere"),
+      },
+      dir,
+    );
+    expect(doc.name).toBe("v3-platform");
+    expect(JSON.parse(doc.bullets ?? "[]")).toHaveLength(2);
+    expect(JSON.parse(doc.skills ?? "[]")).toContain("AWS");
+    expect(fs.existsSync(`${dir}/${doc.id}`)).toBe(true);
+    expect(listDocuments(db, "resume")).toHaveLength(1);
+    expect(listDocuments(db, "cover-letter")).toHaveLength(0);
+  });
+
+  it("updates name and skills, deletes row and file", async () => {
+    const { createDocument, deleteDocument, updateDocument, listDocuments } =
+      await import("@/server/documents");
+    const dir = tmpDir();
+    const doc = await createDocument(
+      db,
+      {
+        kind: "resume",
+        name: "v1",
+        fileName: "r.txt",
+        mimeType: "text/plain",
+        data: Buffer.from("plain"),
+      },
+      dir,
+    );
+    const updated = updateDocument(db, doc.id, {
+      name: "v2",
+      skills: ["AWS", "Kubernetes"],
+    });
+    expect(updated?.name).toBe("v2");
+    expect(JSON.parse(updated?.skills ?? "[]")).toEqual(["AWS", "Kubernetes"]);
+    expect(deleteDocument(db, doc.id, dir)).toBe(true);
+    expect(fs.existsSync(`${dir}/${doc.id}`)).toBe(false);
+    expect(listDocuments(db)).toHaveLength(0);
+  });
+
+  it("assigning a resume to a job mirrors its name into resumeVersion", async () => {
+    const { createDocument } = await import("@/server/documents");
+    const { updateJob } = await import("@/server/jobs");
+    const { jobPatchSchema } = await import("@/lib/schemas");
+    const dir = tmpDir();
+    const doc = await createDocument(
+      db,
+      {
+        kind: "resume",
+        name: "v3-platform",
+        fileName: "r.txt",
+        mimeType: "text/plain",
+        data: Buffer.from("x"),
+      },
+      dir,
+    );
+    const updated = updateJob(db, jobId, jobPatchSchema.parse({ resumeId: doc.id }));
+    expect(updated?.resumeId).toBe(doc.id);
+    expect(updated?.resumeVersion).toBe("v3-platform");
+    const cleared = updateJob(db, jobId, jobPatchSchema.parse({ resumeId: null }));
+    expect(cleared?.resumeVersion).toBeNull();
+  });
+});
+
+describe("Applied schedule syncs dateApplied", () => {
+  it("booking the Applied step writes jobs.dateApplied", async () => {
+    const { upsertStageSchedule } = await import("@/server/schedule");
+    upsertStageSchedule(db, jobId, "Applied", "2026-07-21");
+    expect(getJob(db, jobId)?.dateApplied).toBe("2026-07-21");
   });
 });
 

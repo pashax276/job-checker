@@ -3,6 +3,7 @@
 import {
   Columns3,
   Download,
+  FileText,
   FileUp,
   Inbox,
   LayoutDashboard,
@@ -34,6 +35,7 @@ const NAV = [
   { href: "/board", label: "Board", icon: Columns3, key: "2" },
   { href: "/table", label: "Table", icon: Table2, key: "3" },
   { href: "/inbox", label: "Inbox", icon: Inbox, key: "4" },
+  { href: "/resumes", label: "Resumes", icon: FileText, key: "5" },
   { href: "/settings", label: "Settings", icon: Settings, key: null },
 ] as const;
 

@@ -6,6 +6,7 @@ metadata:
     {{- include "job-tracker.labels" . | nindent 4 }}
 data:
   DATABASE_PATH: /data/tracker.db
+  DOCUMENTS_DIR: /data/files
   # In-process cron only when explicitly requested AND the CronJob is off —
   # the two schedulers must never both run.
   {{- if and .Values.discovery.inProcess (not .Values.discovery.cronJob.enabled) }}

@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { composeComp } from "@/lib/comp";
 import { TRACKER_COLUMNS } from "@/lib/constants";
 import type { Job } from "@/lib/types";
 
@@ -25,7 +26,14 @@ export async function buildTrackerWorkbook(jobs: Job[]): Promise<Buffer> {
   sheet.addRow([...TRACKER_COLUMNS]);
   sheet.getRow(1).font = { bold: true };
   for (const job of jobs) {
-    sheet.addRow(TRACKER_COLUMNS.map((col) => job[FIELD_BY_COLUMN[col]] ?? ""));
+    sheet.addRow(
+      TRACKER_COLUMNS.map((col) =>
+        // Structured comp composes back into the original single column.
+        col === "Comp Notes"
+          ? (composeComp(job) ?? "")
+          : (job[FIELD_BY_COLUMN[col]] ?? ""),
+      ),
+    );
   }
   sheet.columns.forEach((col, i) => {
     col.width = i < 2 ? 28 : 16;

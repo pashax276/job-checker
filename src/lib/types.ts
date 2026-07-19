@@ -15,8 +15,24 @@ export interface Job {
   notes: string | null;
   postingUrl: string | null;
   resumeVersion: string | null;
+  compBase: string | null;
+  compBonus: string | null;
+  compEquity: string | null;
+  resumeId: string | null;
+  coverLetterId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DocumentMeta {
+  id: string;
+  kind: "resume" | "cover-letter";
+  name: string;
+  fileName: string;
+  mimeType: string;
+  bullets: string[];
+  skills: string[];
+  createdAt: string;
 }
 
 export interface Contact {
@@ -25,6 +41,7 @@ export interface Contact {
   name: string;
   role: string | null;
   email: string | null;
+  phone: string | null;
   lastTouch: string | null;
   createdAt: string;
 }
@@ -91,12 +108,20 @@ export interface FunnelStage {
   conversion: number | null;
 }
 
+export interface CalendarEvent {
+  date: string;
+  jobId: string;
+  company: string;
+  kind: string;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
   overdue: OverdueItem[];
   aging: AgingItem[];
   funnel: FunnelStage[];
+  events: CalendarEvent[];
   newLeads: number;
 }
 

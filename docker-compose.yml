@@ -5,6 +5,8 @@ services:
     volumes: ["tracker-data:/data"]
     environment:
       - DATABASE_PATH=/data/tracker.db
+      # Uploaded resumes/cover letters live on the same volume as the DB
+      - DOCUMENTS_DIR=/data/files
       # Discovery scheduler (in-process cron). 0 14 * * * UTC = 7:00 AM Pacific.
       - DISCOVERY_ENABLED=${DISCOVERY_ENABLED:-false}
       - DISCOVERY_CRON=${DISCOVERY_CRON:-0 14 * * *}

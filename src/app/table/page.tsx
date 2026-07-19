@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useJobs, useUpdateJob } from "@/hooks/use-jobs";
+import { composeComp } from "@/lib/comp";
 import { STATUSES, TIERS, type Status, type Tier } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
 import type { Job } from "@/lib/types";
@@ -182,9 +183,9 @@ function TableView() {
       {
         accessorKey: "compNotes",
         header: "Comp",
-        cell: ({ getValue }) => (
-          <span className="font-data text-xs">
-            {(getValue() as string | null) ?? "—"}
+        cell: ({ row }) => (
+          <span className="font-data block max-w-44 truncate text-xs">
+            {composeComp(row.original) ?? "—"}
           </span>
         ),
       },

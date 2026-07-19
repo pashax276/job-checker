@@ -41,6 +41,11 @@ export const jobCreateSchema = z.strictObject({
   notes: nullableText(),
   postingUrl: nullableUrl(),
   resumeVersion: nullableText(),
+  compBase: nullableText(),
+  compBonus: nullableText(),
+  compEquity: nullableText(),
+  resumeId: nullableText(),
+  coverLetterId: nullableText(),
 });
 
 // Patch semantics: absent key = leave unchanged, explicit null = clear.
@@ -58,12 +63,18 @@ export const jobPatchSchema = z.strictObject({
   notes: nullableText().optional(),
   postingUrl: nullableUrl().optional(),
   resumeVersion: nullableText().optional(),
+  compBase: nullableText().optional(),
+  compBonus: nullableText().optional(),
+  compEquity: nullableText().optional(),
+  resumeId: nullableText().optional(),
+  coverLetterId: nullableText().optional(),
 });
 
 export const contactCreateSchema = z.strictObject({
   name: z.string().trim().min(1, "Name is required"),
   role: nullableText(),
   email: z.preprocess(toNull, z.email().nullable()),
+  phone: nullableText(),
   lastTouch: nullableIsoDate(),
 });
 
@@ -71,6 +82,7 @@ export const contactPatchSchema = z.strictObject({
   name: z.string().trim().min(1).optional(),
   role: nullableText().optional(),
   email: z.preprocess(toNull, z.email().nullable()).optional(),
+  phone: nullableText().optional(),
   lastTouch: nullableIsoDate().optional(),
 });
 

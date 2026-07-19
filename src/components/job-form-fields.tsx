@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { StatusBadge, TierBadge } from "@/components/badges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import {
   type JobFormErrors,
   type JobFormValues,
 } from "@/lib/job-form";
+import { api } from "@/lib/api-client";
+import type { DocumentMeta } from "@/lib/types";
 import { companySlugFromUrl, detectAtsType } from "@/server/discovery/rss";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +34,55 @@ interface JobFormFieldsProps {
   ) => void;
   idPrefix: string;
   autoFocusCompany?: boolean;
+  /** Fields rendered elsewhere in the host UI (e.g. drawer's schedule pane). */
+  hiddenFields?: ReadonlyArray<keyof JobFormValues>;
+}
+
+const NONE = "__none__";
+
+function DocumentSelect({
+  label,
+  kind,
+  value,
+  onChange,
+}: {
+  label: string;
+  kind: "resume" | "cover-letter";
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const { data: docs } = useQuery({
+    queryKey: ["documents", kind],
+    queryFn: () => api<DocumentMeta[]>(`/api/documents?kind=${kind}`),
+  });
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <Select
+        value={value || NONE}
+        onValueChange={(v) => onChange(v === NONE || !v ? "" : v)}
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE} className="text-muted-foreground">
+            None
+          </SelectItem>
+          {(docs ?? []).map((doc) => (
+            <SelectItem key={doc.id} value={doc.id}>
+              {doc.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {(docs ?? []).length === 0 ? (
+        <p className="text-[10px] text-muted-foreground">
+          Upload versions on the Resumes page.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -55,8 +107,10 @@ export function JobFormFields({
   onChange,
   idPrefix,
   autoFocusCompany,
+  hiddenFields = [],
 }: JobFormFieldsProps) {
   const id = (name: string) => `${idPrefix}-${name}`;
+  const show = (field: keyof JobFormValues) => !hiddenFields.includes(field);
 
   const atsType = values.postingUrl ? detectAtsType(values.postingUrl) : null;
   const slug = values.postingUrl ? companySlugFromUrl(values.postingUrl) : null;
@@ -137,17 +191,19 @@ export function JobFormFields({
         </Select>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor={id("date-applied")}>Date applied</Label>
-        <Input
-          id={id("date-applied")}
-          type="date"
-          aria-invalid={!!errors.dateApplied}
-          value={values.dateApplied}
-          onChange={(e) => onChange("dateApplied", e.target.value)}
-        />
-        <FieldError message={errors.dateApplied} />
-      </div>
+      {show("dateApplied") ? (
+        <div className="space-y-1">
+          <Label htmlFor={id("date-applied")}>Date applied</Label>
+          <Input
+            id={id("date-applied")}
+            type="date"
+            aria-invalid={!!errors.dateApplied}
+            value={values.dateApplied}
+            onChange={(e) => onChange("dateApplied", e.target.value)}
+          />
+          <FieldError message={errors.dateApplied} />
+        </div>
+      ) : null}
       <div className="space-y-1">
         <Label htmlFor={id("follow-up")}>Follow-up date</Label>
         <Input
@@ -176,34 +232,49 @@ export function JobFormFields({
         <FieldError message={errors.followUpDate} />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor={id("comp")}>Comp notes</Label>
+      <div className="col-span-2 space-y-1">
+        <Label>Compensation</Label>
+        <div className="grid grid-cols-3 gap-2">
+          <Input
+            aria-label="Base salary"
+            placeholder="base $170k"
+            value={values.compBase}
+            onChange={(e) => onChange("compBase", e.target.value)}
+          />
+          <Input
+            aria-label="Bonus"
+            placeholder="bonus 10%"
+            value={values.compBonus}
+            onChange={(e) => onChange("compBonus", e.target.value)}
+          />
+          <Input
+            aria-label="Equity"
+            placeholder="equity 0.05%"
+            value={values.compEquity}
+            onChange={(e) => onChange("compEquity", e.target.value)}
+          />
+        </div>
         <Input
           id={id("comp")}
-          placeholder="$170–195k"
+          aria-label="Other comp notes"
+          placeholder="other comp notes — on-call, refreshers…"
           value={values.compNotes}
           onChange={(e) => onChange("compNotes", e.target.value)}
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor={id("contact")}>Contact</Label>
-        <Input
-          id={id("contact")}
-          value={values.contact}
-          onChange={(e) => onChange("contact", e.target.value)}
         />
       </div>
 
       <div className="col-span-2 space-y-1">
         <Label htmlFor={id("next-action")}>Next action</Label>
-        <Input
+        <Textarea
           id={id("next-action")}
+          rows={1}
+          className="field-sizing-content min-h-9 resize-y"
           value={values.nextAction}
           onChange={(e) => onChange("nextAction", e.target.value)}
         />
       </div>
 
-      <div className="space-y-1">
+      <div className="col-span-2 space-y-1">
         <Label htmlFor={id("url")}>Posting URL</Label>
         <Input
           id={id("url")}
@@ -222,15 +293,18 @@ export function JobFormFields({
         ) : null}
         <FieldError message={errors.postingUrl} />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor={id("resume")}>Resume version</Label>
-        <Input
-          id={id("resume")}
-          placeholder="e.g. v3-platform"
-          value={values.resumeVersion}
-          onChange={(e) => onChange("resumeVersion", e.target.value)}
-        />
-      </div>
+      <DocumentSelect
+        label="Resume version"
+        kind="resume"
+        value={values.resumeId}
+        onChange={(v) => onChange("resumeId", v)}
+      />
+      <DocumentSelect
+        label="Cover letter"
+        kind="cover-letter"
+        value={values.coverLetterId}
+        onChange={(v) => onChange("coverLetterId", v)}
+      />
 
       <div className="col-span-2 space-y-1">
         <Label htmlFor={id("notes")}>Notes</Label>

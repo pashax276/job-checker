@@ -14,8 +14,32 @@ export const jobs = sqliteTable("jobs", {
   notes: text("notes"),
   postingUrl: text("posting_url"),
   resumeVersion: text("resume_version"),
+  compBase: text("comp_base"),
+  compBonus: text("comp_bonus"),
+  compEquity: text("comp_equity"),
+  resumeId: text("resume_id").references(() => documents.id, {
+    onDelete: "set null",
+  }),
+  coverLetterId: text("cover_letter_id").references(() => documents.id, {
+    onDelete: "set null",
+  }),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+// Uploaded resumes / cover letters: file on the /data volume, extracted text
+// + parsed bullets/skills in the row. Assigned to jobs via jobs.resumeId /
+// jobs.coverLetterId (tailored versions per application).
+export const documents = sqliteTable("documents", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(), // 'resume' | 'cover-letter'
+  name: text("name").notNull(), // version label, e.g. "v3-platform"
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  extractedText: text("extracted_text").notNull().default(""),
+  bullets: text("bullets"), // JSON string[]
+  skills: text("skills"), // JSON string[]
+  createdAt: text("created_at").notNull(),
 });
 
 // Structured contacts per job (the legacy jobs.contact text stays as-is).
@@ -27,6 +51,7 @@ export const contacts = sqliteTable("contacts", {
   name: text("name").notNull(),
   role: text("role"),
   email: text("email"),
+  phone: text("phone"),
   lastTouch: text("last_touch"),
   createdAt: text("created_at").notNull(),
 });
@@ -96,5 +121,6 @@ export type StatusHistoryRecord = typeof statusHistory.$inferSelect;
 export type ContactRecord = typeof contacts.$inferSelect;
 export type ActivityRecord = typeof activity.$inferSelect;
 export type StageScheduleRecord = typeof stageSchedule.$inferSelect;
+export type DocumentRecord = typeof documents.$inferSelect;
 export type WatchlistRecord = typeof watchlist.$inferSelect;
 export type LeadRecord = typeof leads.$inferSelect;

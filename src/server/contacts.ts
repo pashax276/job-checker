@@ -25,6 +25,7 @@ export function addContact(
     name: input.name,
     role: input.role,
     email: input.email,
+    phone: input.phone,
     lastTouch: input.lastTouch,
     createdAt: now.toISOString(),
   };

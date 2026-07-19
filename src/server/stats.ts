@@ -1,6 +1,6 @@
-import { and, asc, count, eq, inArray, isNotNull, lte, not, notInArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, lte, not, notInArray, sql } from "drizzle-orm";
 import type { DB } from "@/db/client";
-import { jobs, leads, statusHistory } from "@/db/schema";
+import { jobs, leads, stageSchedule, statusHistory } from "@/db/schema";
 import {
   ACTIVE_EXCLUDED_STATUSES,
   PIPELINE_FLOW,
@@ -33,12 +33,21 @@ export interface FunnelStage {
   conversion: number | null;
 }
 
+export interface CalendarEvent {
+  date: string;
+  jobId: string;
+  company: string;
+  /** A pipeline stage name, or "Follow-up". */
+  kind: string;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
   overdue: OverdueItem[];
   aging: AgingItem[];
   funnel: FunnelStage[];
+  events: CalendarEvent[];
   newLeads: number;
 }
 
@@ -192,9 +201,43 @@ export function getStats(db: DB, today = new Date()): Stats {
     };
   }
 
+  // Upcoming calendar: booked stage dates plus active jobs' follow-ups,
+  // today onward, soonest first.
+  const todayIso = toLocalIsoDate(today);
+  const bookedEvents: CalendarEvent[] = db
+    .select({
+      date: stageSchedule.scheduledFor,
+      jobId: stageSchedule.jobId,
+      company: jobs.company,
+      kind: stageSchedule.stage,
+    })
+    .from(stageSchedule)
+    .innerJoin(jobs, eq(stageSchedule.jobId, jobs.id))
+    .where(gte(stageSchedule.scheduledFor, todayIso))
+    .all();
+  const followUpEvents: CalendarEvent[] = db
+    .select({
+      date: sql<string>`${jobs.followUpDate}`,
+      jobId: jobs.id,
+      company: jobs.company,
+    })
+    .from(jobs)
+    .where(
+      and(
+        activeCondition(),
+        isNotNull(jobs.followUpDate),
+        gte(jobs.followUpDate, todayIso),
+      ),
+    )
+    .all()
+    .map((row) => ({ ...row, kind: "Follow-up" }));
+  const events = [...bookedEvents, ...followUpEvents]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 60);
+
   const newLeads =
     db.select({ n: count() }).from(leads).where(eq(leads.status, "new")).get()
       ?.n ?? 0;
 
-  return { statusCounts, activeTotal, overdue, aging, funnel, newLeads };
+  return { statusCounts, activeTotal, overdue, aging, funnel, events, newLeads };
 }

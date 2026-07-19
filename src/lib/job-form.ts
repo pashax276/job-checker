@@ -16,6 +16,11 @@ export interface JobFormValues {
   contact: string;
   postingUrl: string;
   resumeVersion: string;
+  compBase: string;
+  compBonus: string;
+  compEquity: string;
+  resumeId: string;
+  coverLetterId: string;
   notes: string;
 }
 
@@ -31,6 +36,11 @@ export const EMPTY_JOB_FORM: JobFormValues = {
   contact: "",
   postingUrl: "",
   resumeVersion: "",
+  compBase: "",
+  compBonus: "",
+  compEquity: "",
+  resumeId: "",
+  coverLetterId: "",
   notes: "",
 };
 
@@ -47,6 +57,11 @@ export function jobToFormValues(job: Job): JobFormValues {
     contact: job.contact ?? "",
     postingUrl: job.postingUrl ?? "",
     resumeVersion: job.resumeVersion ?? "",
+    compBase: job.compBase ?? "",
+    compBonus: job.compBonus ?? "",
+    compEquity: job.compEquity ?? "",
+    resumeId: job.resumeId ?? "",
+    coverLetterId: job.coverLetterId ?? "",
     notes: job.notes ?? "",
   };
 }

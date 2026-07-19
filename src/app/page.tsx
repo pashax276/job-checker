@@ -285,8 +285,72 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Right 1/3: follow-up queue, stage mix, aging */}
+        {/* Right 1/3: calendar, follow-up queue, stage mix, aging */}
         <div className="space-y-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Calendar
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  booked steps &amp; follow-ups
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {stats.events.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nothing booked. Set step dates in a job&apos;s Scheduled steps.
+                </p>
+              ) : (
+                Object.entries(
+                  stats.events.reduce<Record<string, typeof stats.events>>(
+                    (acc, event) => ({
+                      ...acc,
+                      [event.date]: [...(acc[event.date] ?? []), event],
+                    }),
+                    {},
+                  ),
+                ).map(([date, dayEvents]) => (
+                  <div key={date} className="flex gap-3">
+                    <span className="font-data w-16 shrink-0 pt-1 text-xs text-muted-foreground">
+                      {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      {dayEvents.map((event) => (
+                        <button
+                          key={`${event.jobId}-${event.kind}`}
+                          type="button"
+                          onClick={() => setSelectedId(event.jobId)}
+                          className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs transition-colors hover:bg-accent/50"
+                        >
+                          <span
+                            aria-hidden
+                            className="size-1.5 shrink-0 rounded-full"
+                            style={{
+                              background:
+                                event.kind === "Follow-up"
+                                  ? "var(--due)"
+                                  : (STATUS_VAR[event.kind as Status] ??
+                                    "var(--muted-foreground)"),
+                            }}
+                          />
+                          <span className="truncate">{event.company}</span>
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            {event.kind}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">

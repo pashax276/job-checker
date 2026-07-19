@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useJobs, useUpdateJob } from "@/hooks/use-jobs";
+import { composeComp } from "@/lib/comp";
 import { STATUSES, type Status } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
 import type { Job } from "@/lib/types";
@@ -89,9 +90,9 @@ function JobCard({
       <span className="mt-1.5 flex items-center gap-1.5">
         <TierBadge tier={job.priorityTier} />
         {due ? <DueBadge /> : null}
-        {job.compNotes ? (
+        {composeComp(job) ? (
           <span className="font-data min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground">
-            {job.compNotes}
+            {composeComp(job)}
           </span>
         ) : null}
       </span>

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
-import { stageSchedule, type StageScheduleRecord } from "@/db/schema";
+import { jobs, stageSchedule, type StageScheduleRecord } from "@/db/schema";
 import type { Status } from "@/lib/constants";
 
 export function listSchedule(db: DB, jobId: string): StageScheduleRecord[] {
@@ -33,6 +33,13 @@ export function upsertStageSchedule(
       set: { scheduledFor },
     })
     .run();
+  // Booking the Applied step IS the application date — keep the job in sync.
+  if (stage === "Applied") {
+    db.update(jobs)
+      .set({ dateApplied: scheduledFor })
+      .where(eq(jobs.id, jobId))
+      .run();
+  }
   return db
     .select()
     .from(stageSchedule)

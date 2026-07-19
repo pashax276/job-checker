@@ -23,6 +23,7 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     DATABASE_PATH=/data/tracker.db \
+    DOCUMENTS_DIR=/data/files \
     NEXT_TELEMETRY_DISABLED=1
 
 # Standalone server + static assets + runtime data the app reads from cwd.
