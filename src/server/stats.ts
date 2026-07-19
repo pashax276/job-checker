@@ -80,6 +80,7 @@ export function getStats(db: DB, today = new Date()): Stats {
       company: jobs.company,
       role: jobs.role,
       status: jobs.status,
+      dateApplied: jobs.dateApplied,
       createdAt: jobs.createdAt,
     })
     .from(jobs)
@@ -89,6 +90,7 @@ export function getStats(db: DB, today = new Date()): Stats {
     .select({
       jobId: statusHistory.jobId,
       last: sql<string>`MAX(${statusHistory.changedAt})`,
+      entries: count(),
     })
     .from(statusHistory)
     .where(
@@ -99,7 +101,21 @@ export function getStats(db: DB, today = new Date()): Stats {
     )
     .groupBy(statusHistory.jobId)
     .all();
-  const lastByJob = new Map(lastChanges.map((r) => [r.jobId, r.last]));
+  const historyByJob = new Map(lastChanges.map((r) => [r.jobId, r]));
+
+  // Stage start = last recorded status change. Imported jobs carry only the
+  // import stamp as history, which would make every bar identical — for those
+  // (single history row) fall back to dateApplied when it is earlier. Exact
+  // for Applied; an honest lower bound elsewhere; self-corrects as real
+  // status changes accrue.
+  const stageStart = (job: (typeof activeJobs)[number]): string => {
+    const meta = historyByJob.get(job.id);
+    const last = meta?.last ?? job.createdAt;
+    if ((meta?.entries ?? 0) <= 1 && job.dateApplied && job.dateApplied < last) {
+      return job.dateApplied;
+    }
+    return last;
+  };
 
   const aging: AgingItem[] = activeJobs
     .map((j) => ({
@@ -107,10 +123,7 @@ export function getStats(db: DB, today = new Date()): Stats {
       company: j.company,
       role: j.role,
       status: j.status,
-      daysInCurrentStage: daysInCurrentStage(
-        lastByJob.get(j.id) ?? j.createdAt,
-        today,
-      ),
+      daysInCurrentStage: daysInCurrentStage(stageStart(j), today),
     }))
     .sort((a, b) => b.daysInCurrentStage - a.daysInCurrentStage);
 
