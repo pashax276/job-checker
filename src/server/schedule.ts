@@ -43,18 +43,21 @@ export function upsertStageSchedule(
   jobId: string,
   stage: Status,
   scheduledFor: string,
+  prepNotes?: string | null,
 ): StageScheduleRecord {
   const record: StageScheduleRecord = {
     id: randomUUID(),
     jobId,
     stage,
     scheduledFor,
+    prepNotes: prepNotes ?? null,
   };
   db.insert(stageSchedule)
     .values(record)
     .onConflictDoUpdate({
       target: [stageSchedule.jobId, stageSchedule.stage],
-      set: { scheduledFor },
+      // prepNotes only overwritten when the caller supplies it
+      set: { scheduledFor, ...(prepNotes !== undefined ? { prepNotes } : {}) },
     })
     .run();
   // Booking the Applied step IS the application date — keep the job in sync.

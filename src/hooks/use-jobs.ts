@@ -158,11 +158,21 @@ export function useJobExtras(jobId: string | null) {
     onError,
   });
   const setSchedule = useMutation({
-    mutationFn: (input: { stage: string; scheduledFor: string }) =>
+    mutationFn: (input: {
+      stage: string;
+      scheduledFor: string;
+      prepNotes?: string | null;
+    }) =>
       api(`/api/jobs/${jobId}/schedule`, {
         method: "PUT",
         body: JSON.stringify(input),
       }),
+    onSuccess: refresh,
+    onError,
+  });
+  const refreshSkillMatch = useMutation({
+    mutationFn: () =>
+      api(`/api/jobs/${jobId}/skill-match`, { method: "POST" }),
     onSuccess: refresh,
     onError,
   });
@@ -183,6 +193,7 @@ export function useJobExtras(jobId: string | null) {
     removeActivity,
     setSchedule,
     clearSchedule,
+    refreshSkillMatch,
   };
 }
 

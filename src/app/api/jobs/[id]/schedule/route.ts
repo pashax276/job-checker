@@ -20,7 +20,13 @@ export async function PUT(request: Request, ctx: Ctx): Promise<Response> {
   const parsed = scheduleSetSchema.safeParse(body);
   if (!parsed.success) return apiZodError(parsed.error);
   return apiOk(
-    upsertStageSchedule(getDb(), id, parsed.data.stage, parsed.data.scheduledFor),
+    upsertStageSchedule(
+      getDb(),
+      id,
+      parsed.data.stage,
+      parsed.data.scheduledFor,
+      parsed.data.prepNotes,
+    ),
   );
 }
 

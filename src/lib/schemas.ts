@@ -93,6 +93,7 @@ export const activityCreateSchema = z.strictObject({
 export const scheduleSetSchema = z.strictObject({
   stage: z.enum(SCHEDULABLE_STAGES),
   scheduledFor: z.string().regex(ISO_DATE_RE, "Expected YYYY-MM-DD"),
+  prepNotes: nullableText().optional(),
 });
 
 export const scheduleClearSchema = z.strictObject({

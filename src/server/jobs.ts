@@ -53,6 +53,7 @@ export function createJob(
     compEquity: input.compEquity,
     resumeId: input.resumeId,
     coverLetterId: input.coverLetterId,
+    skillMatch: null,
     createdAt: stamp,
     updatedAt: stamp,
   };

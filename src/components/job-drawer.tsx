@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
@@ -39,6 +40,7 @@ import {
   toLocalIsoDate,
 } from "@/lib/dates";
 import { followUpEmail } from "@/lib/follow-up-email";
+import { parseStoredSkillMatch } from "@/lib/skill-match";
 import {
   jobToFormValues,
   validateJobForm,
@@ -235,43 +237,139 @@ function ScheduleSection({
   schedule: StageScheduleEntry[];
 }) {
   const { setSchedule, clearSchedule } = useJobExtras(jobId);
-  const byStage = new Map(schedule.map((s) => [s.stage, s.scheduledFor]));
+  const byStage = new Map(schedule.map((s) => [s.stage, s]));
 
   return (
     <div className="space-y-1">
       {SCHEDULABLE_STAGES.map((stage) => {
-        const booked = byStage.get(stage) ?? "";
+        const entry = byStage.get(stage);
+        const booked = entry?.scheduledFor ?? "";
         return (
-          <div key={stage} className="flex items-center gap-2">
-            <span className="w-28 shrink-0">
-              <StatusBadge status={stage} />
-            </span>
-            <Input
-              type="date"
-              aria-label={`${stage} date`}
-              className="h-7 flex-1 text-xs"
-              value={booked}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v) setSchedule.mutate({ stage, scheduledFor: v });
-                else if (booked) clearSchedule.mutate(stage);
-              }}
-            />
+          <div key={stage} className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0">
+                <StatusBadge status={stage} />
+              </span>
+              <Input
+                type="date"
+                aria-label={`${stage} date`}
+                className="h-7 flex-1 text-xs"
+                value={booked}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) setSchedule.mutate({ stage, scheduledFor: v });
+                  else if (booked) clearSchedule.mutate(stage);
+                }}
+              />
+              {booked ? (
+                <button
+                  type="button"
+                  aria-label={`Clear ${stage} date`}
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => clearSchedule.mutate(stage)}
+                >
+                  <Trash2 className="size-3" aria-hidden />
+                </button>
+              ) : (
+                <span className="w-3" aria-hidden />
+              )}
+            </div>
             {booked ? (
-              <button
-                type="button"
-                aria-label={`Clear ${stage} date`}
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => clearSchedule.mutate(stage)}
-              >
-                <Trash2 className="size-3" aria-hidden />
-              </button>
-            ) : (
-              <span className="w-3" aria-hidden />
-            )}
+              <Textarea
+                aria-label={`${stage} prep notes`}
+                placeholder="Prep notes — questions to ask, topics to review…"
+                rows={1}
+                className="field-sizing-content min-h-7 resize-y text-xs"
+                defaultValue={entry?.prepNotes ?? ""}
+                onBlur={(e) => {
+                  const next = e.target.value.trim();
+                  if (next !== (entry?.prepNotes ?? "")) {
+                    setSchedule.mutate({
+                      stage,
+                      scheduledFor: booked,
+                      prepNotes: next || null,
+                    });
+                  }
+                }}
+              />
+            ) : null}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function SkillMatchSection({ job }: { job: JobDetail }) {
+  const { refreshSkillMatch } = useJobExtras(job.id);
+  const match = parseStoredSkillMatch(job.skillMatch);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        {match ? (
+          <span
+            className={cn(
+              "font-data text-sm font-semibold",
+              match.score >= 0.7
+                ? "text-status-offer"
+                : match.score >= 0.4
+                  ? "text-status-assessment"
+                  : "text-due",
+            )}
+          >
+            {Math.round(match.score * 100)}%
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            Not checked yet
+          </span>
+        )}
+        <div className="flex-1" />
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 text-[10px]"
+          disabled={refreshSkillMatch.isPending || !job.postingUrl}
+          onClick={() => refreshSkillMatch.mutate()}
+        >
+          {refreshSkillMatch.isPending
+            ? "Checking…"
+            : match
+              ? "Re-check"
+              : "Check match"}
+        </Button>
+      </div>
+      {match ? (
+        <>
+          <div className="flex flex-wrap gap-1">
+            {match.matched.map((skill) => (
+              <span
+                key={skill}
+                className="rounded-sm border border-status-offer/40 bg-status-offer/10 px-1 text-[10px] text-status-offer"
+              >
+                {skill}
+              </span>
+            ))}
+            {match.missing.map((skill) => (
+              <span
+                key={skill}
+                className="rounded-sm border border-status-assessment/40 bg-status-assessment/10 px-1 text-[10px] text-status-assessment"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+          <p className="font-data text-[10px] text-muted-foreground">
+            vs posting, checked {formatStamp(match.checkedAt)} — green covered,
+            amber missing from resume
+          </p>
+        </>
+      ) : (
+        <p className="text-[10px] text-muted-foreground">
+          Compares the posting&apos;s skills against your resume.
+        </p>
+      )}
     </div>
   );
 }
@@ -615,6 +713,12 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                   Contacts
                 </h3>
                 <ContactsSection jobId={job.id} contacts={job.contacts} />
+              </div>
+              <div className="space-y-2 p-4 pb-0">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Skill match
+                </h3>
+                <SkillMatchSection job={job} />
               </div>
               <div className="space-y-2 p-4 pb-0">
                 <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

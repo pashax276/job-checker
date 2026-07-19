@@ -18,6 +18,7 @@ export const jobs = sqliteTable("jobs", {
   compBonus: text("comp_bonus"),
   compEquity: text("comp_equity"),
   source: text("source").notNull().default("manual"), // manual | import | discovery
+  skillMatch: text("skill_match"), // JSON {score, matched, missing, checkedAt}
   resumeId: text("resume_id").references(() => documents.id, {
     onDelete: "set null",
   }),
@@ -67,6 +68,7 @@ export const stageSchedule = sqliteTable(
       .references(() => jobs.id, { onDelete: "cascade" }),
     stage: text("stage").notNull(),
     scheduledFor: text("scheduled_for").notNull(),
+    prepNotes: text("prep_notes"),
   },
   (t) => [unique().on(t.jobId, t.stage)],
 );

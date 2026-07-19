@@ -112,6 +112,34 @@ describe("computeReminders", () => {
     expect(computeReminders(db, TODAY).filter((r) => r.company === "DeadCo")).toHaveLength(0);
   });
 
+  it("reminds about steps booked for today or tomorrow", async () => {
+    const { upsertStageSchedule } = await import("@/server/schedule");
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "PrepCo", role: "SRE", status: "Screen" }),
+      new Date(2026, 6, 1),
+    );
+    upsertStageSchedule(db, job.id, "Screen", "2026-07-19"); // tomorrow vs TODAY(7/18)
+    const reminders = computeReminders(db, TODAY);
+    const prep = reminders.find((r) => r.rule === "prep");
+    expect(prep?.company).toBe("PrepCo");
+    expect(prep?.message).toMatch(/tomorrow/i);
+  });
+
+  it("does not remind about far-future or past bookings", async () => {
+    const { upsertStageSchedule } = await import("@/server/schedule");
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "FarCo", role: "SRE", status: "Screen" }),
+      new Date(2026, 6, 1),
+    );
+    upsertStageSchedule(db, job.id, "Screen", "2026-07-30");
+    upsertStageSchedule(db, job.id, "Panel", "2026-07-01");
+    expect(
+      computeReminders(db, TODAY).filter((r) => r.rule === "prep"),
+    ).toHaveLength(0);
+  });
+
   it("dismissed reminders stay dismissed", () => {
     createJob(
       db,

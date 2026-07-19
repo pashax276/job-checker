@@ -21,6 +21,7 @@ export interface Job {
   resumeId: string | null;
   coverLetterId: string | null;
   source: "manual" | "import" | "discovery";
+  skillMatch: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +78,7 @@ export interface StageScheduleEntry {
   jobId: string;
   stage: Status;
   scheduledFor: string;
+  prepNotes: string | null;
 }
 
 export interface JobDetail extends Job {

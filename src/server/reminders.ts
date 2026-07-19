@@ -1,14 +1,18 @@
 import { desc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
-import { jobs, statusHistory } from "@/db/schema";
+import { jobs, stageSchedule, statusHistory } from "@/db/schema";
 import {
   ACTIVE_EXCLUDED_STATUSES,
   type Status,
 } from "@/lib/constants";
-import { daysInCurrentStage } from "@/lib/dates";
+import { daysInCurrentStage, toLocalIsoDate } from "@/lib/dates";
 import { getSetting, setSetting } from "@/server/settings";
 
-export type ReminderRule = "no-reply" | "thank-you" | "stale-evaluating";
+export type ReminderRule =
+  | "no-reply"
+  | "thank-you"
+  | "stale-evaluating"
+  | "prep";
 
 export interface Reminder {
   key: string;
@@ -105,6 +109,43 @@ export function computeReminders(db: DB, today = new Date()): Reminder[] {
         });
       }
     }
+  }
+
+  // Booked steps happening today or tomorrow -> review prep notes.
+  const todayIso = toLocalIsoDate(today);
+  const tomorrowIso = toLocalIsoDate(
+    new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+  );
+  const activeIds = new Set(activeJobs.map((j) => j.id));
+  const booked = db
+    .select({
+      jobId: stageSchedule.jobId,
+      stage: stageSchedule.stage,
+      scheduledFor: stageSchedule.scheduledFor,
+      company: jobs.company,
+      role: jobs.role,
+      status: jobs.status,
+    })
+    .from(stageSchedule)
+    .innerJoin(jobs, eq(stageSchedule.jobId, jobs.id))
+    .all()
+    .filter(
+      (row) =>
+        activeIds.has(row.jobId) &&
+        (row.scheduledFor === todayIso || row.scheduledFor === tomorrowIso),
+    );
+  for (const row of booked) {
+    reminders.push({
+      key: `prep:${row.jobId}:${row.stage}:${row.scheduledFor}`,
+      rule: "prep",
+      jobId: row.jobId,
+      company: row.company,
+      role: row.role,
+      status: row.status as Status,
+      message: `${row.stage} at ${row.company} ${
+        row.scheduledFor === todayIso ? "today" : "tomorrow"
+      } — review your prep notes`,
+    });
   }
 
   return reminders.filter((r) => !dismissed.has(r.key));
