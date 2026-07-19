@@ -16,14 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -32,7 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
+import { JobFormFields } from "@/components/job-form-fields";
 import { StageJourney } from "@/components/stage-journey";
 import {
   useDeleteJob,
@@ -40,13 +32,18 @@ import {
   useJobExtras,
   useUpdateJob,
 } from "@/hooks/use-jobs";
-import { STATUSES, TIERS, type Status, type Tier } from "@/lib/constants";
 import {
   daysInCurrentStage,
   daysSinceApplied,
   isFollowUpDue,
   toLocalIsoDate,
 } from "@/lib/dates";
+import {
+  jobToFormValues,
+  validateJobForm,
+  type JobFormErrors,
+  type JobFormValues,
+} from "@/lib/job-form";
 import { jobPatchSchema } from "@/lib/schemas";
 import type {
   ActivityEntry,
@@ -58,38 +55,6 @@ import type {
 interface JobDrawerProps {
   jobId: string | null;
   onClose: () => void;
-}
-
-interface DraftState {
-  company: string;
-  role: string;
-  priorityTier: Tier;
-  status: Status;
-  dateApplied: string;
-  followUpDate: string;
-  compNotes: string;
-  nextAction: string;
-  contact: string;
-  postingUrl: string;
-  resumeVersion: string;
-  notes: string;
-}
-
-function toDraft(job: JobDetail): DraftState {
-  return {
-    company: job.company,
-    role: job.role,
-    priorityTier: job.priorityTier,
-    status: job.status,
-    dateApplied: job.dateApplied ?? "",
-    followUpDate: job.followUpDate ?? "",
-    compNotes: job.compNotes ?? "",
-    nextAction: job.nextAction ?? "",
-    contact: job.contact ?? "",
-    postingUrl: job.postingUrl ?? "",
-    resumeVersion: job.resumeVersion ?? "",
-    notes: job.notes ?? "",
-  };
 }
 
 function formatStamp(iso: string): string {
@@ -314,8 +279,8 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
   const { data: job } = useJob(jobId);
   const updateJob = useUpdateJob();
   const deleteJob = useDeleteJob();
-  const [draft, setDraft] = useState<DraftState | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<JobFormValues | null>(null);
+  const [errors, setErrors] = useState<JobFormErrors>({});
   const [draftKey, setDraftKey] = useState<string | null>(null);
 
   // Reset the draft during render whenever a different job (or fresher copy)
@@ -323,27 +288,34 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
   const incomingKey = job ? `${job.id}:${job.updatedAt}` : null;
   if (incomingKey !== draftKey) {
     setDraftKey(incomingKey);
-    setDraft(job ? toDraft(job) : null);
-    setError(null);
+    setDraft(job ? jobToFormValues(job) : null);
+    setErrors({});
   }
 
-  const set = <K extends keyof DraftState>(key: K, value: DraftState[K]) =>
+  const set = <K extends keyof JobFormValues>(
+    key: K,
+    value: JobFormValues[K],
+  ) => {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
+    setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e));
+  };
+
+  const dirty =
+    job !== undefined &&
+    draft !== null &&
+    JSON.stringify(draft) !== JSON.stringify(jobToFormValues(job));
 
   const save = () => {
-    if (!job || !draft) return;
-    const parsed = jobPatchSchema.safeParse(draft);
-    if (!parsed.success) {
-      setError(
-        parsed.error.issues
-          .map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message))
-          .join("; "),
-      );
+    if (!job || !draft || !dirty) return;
+    const result = validateJobForm(draft);
+    if (!result.data) {
+      setErrors(result.errors);
       return;
     }
-    setError(null);
+    setErrors({});
+    const { id: _seedId, ...fields } = result.data;
     updateJob.mutate(
-      { id: job.id, patch: parsed.data },
+      { id: job.id, patch: jobPatchSchema.parse(fields) },
       { onSuccess: onClose },
     );
   };
@@ -388,134 +360,22 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
               </SheetDescription>
             </SheetHeader>
 
-            <div className="grid grid-cols-2 gap-3 px-4 pb-4">
-              <div className="space-y-1">
-                <Label htmlFor="d-company">Company</Label>
-                <Input
-                  id="d-company"
-                  value={draft.company}
-                  onChange={(e) => set("company", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-role">Role</Label>
-                <Input
-                  id="d-role"
-                  value={draft.role}
-                  onChange={(e) => set("role", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Priority tier</Label>
-                <Select
-                  value={draft.priorityTier}
-                  onValueChange={(v) => set("priorityTier", v as Tier)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIERS.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Status</Label>
-                <Select
-                  value={draft.status}
-                  onValueChange={(v) => set("status", v as Status)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-applied">Date applied</Label>
-                <Input
-                  id="d-applied"
-                  type="date"
-                  value={draft.dateApplied}
-                  onChange={(e) => set("dateApplied", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-followup">Follow-up date</Label>
-                <Input
-                  id="d-followup"
-                  type="date"
-                  value={draft.followUpDate}
-                  onChange={(e) => set("followUpDate", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-comp">Comp notes</Label>
-                <Input
-                  id="d-comp"
-                  value={draft.compNotes}
-                  onChange={(e) => set("compNotes", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-contact">Contact</Label>
-                <Input
-                  id="d-contact"
-                  value={draft.contact}
-                  onChange={(e) => set("contact", e.target.value)}
-                />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="d-next">Next action</Label>
-                <Input
-                  id="d-next"
-                  value={draft.nextAction}
-                  onChange={(e) => set("nextAction", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-url">Posting URL</Label>
-                <Input
-                  id="d-url"
-                  type="url"
-                  value={draft.postingUrl}
-                  onChange={(e) => set("postingUrl", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="d-resume">Resume version</Label>
-                <Input
-                  id="d-resume"
-                  placeholder="e.g. v3-platform"
-                  value={draft.resumeVersion}
-                  onChange={(e) => set("resumeVersion", e.target.value)}
-                />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label htmlFor="d-notes">Notes</Label>
-                <Textarea
-                  id="d-notes"
-                  rows={4}
-                  value={draft.notes}
-                  onChange={(e) => set("notes", e.target.value)}
-                />
-              </div>
-              {error ? (
-                <p role="alert" className="col-span-2 text-sm text-destructive">
-                  {error}
-                </p>
-              ) : null}
-              <div className="col-span-2 flex items-center justify-between pt-1">
+            <div
+              className="space-y-3 px-4 pb-4"
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  save();
+                }
+              }}
+            >
+              <JobFormFields
+                values={draft}
+                errors={errors}
+                onChange={set}
+                idPrefix="edit"
+              />
+              <div className="flex items-center justify-between pt-1">
                 <AlertDialog>
                   <AlertDialogTrigger
                     render={
@@ -549,11 +409,20 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                  {dirty ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      unsaved changes
+                    </span>
+                  ) : null}
                   <Button variant="ghost" size="sm" onClick={onClose}>
                     Cancel
                   </Button>
-                  <Button size="sm" onClick={save} disabled={updateJob.isPending}>
+                  <Button
+                    size="sm"
+                    onClick={save}
+                    disabled={updateJob.isPending || !dirty}
+                  >
                     {updateJob.isPending ? "Saving…" : "Save changes"}
                   </Button>
                 </div>

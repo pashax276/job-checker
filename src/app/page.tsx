@@ -386,6 +386,11 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
+              <p className="pb-1 text-[10px] leading-tight text-muted-foreground">
+                Historical: counts jobs that ever hit a stage, including ones
+                since closed or moved back — board columns show current stages
+                only.
+              </p>
               {stats.funnel.map((stage) => {
                 const total = stats.funnel[0]?.reached ?? 1;
                 const width = total > 0 ? (stage.reached / total) * 100 : 0;

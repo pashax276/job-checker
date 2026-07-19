@@ -54,6 +54,23 @@ test.describe("smoke", () => {
     await expect(page.getByText("Contacts", { exact: true })).toBeVisible();
   });
 
+  test("add-job form validates inline and creates a job", async ({ page }) => {
+    await page.goto("/table");
+    await page.getByRole("button", { name: /New job/ }).click();
+    // submit empty -> inline field errors, dialog stays open
+    await page.getByRole("button", { name: "Add job", exact: true }).click();
+    await expect(page.getByText(/company is required/i)).toBeVisible();
+    // fill required fields and submit
+    await page.getByLabel("Company *").fill("E2E Test Co");
+    await page.getByLabel("Role *").fill("Senior SRE");
+    await page.getByRole("button", { name: "Add job", exact: true }).click();
+    await expect(page.getByText(/Added E2E Test Co/)).toBeVisible();
+    // row exists after the optimistic refresh
+    await expect(
+      page.getByRole("row").filter({ hasText: "E2E Test Co" }),
+    ).toHaveCount(1);
+  });
+
   test("inline status change persists across reload", async ({ page }) => {
     await page.goto("/table");
     const row = page.getByRole("row").filter({ hasText: "Platform Science" });
