@@ -19,6 +19,7 @@ export const jobs = sqliteTable("jobs", {
   compEquity: text("comp_equity"),
   source: text("source").notNull().default("manual"), // manual | import | discovery
   skillMatch: text("skill_match"), // JSON {score, matched, missing, checkedAt}
+  jdSnapshot: text("jd_snapshot"), // posting text captured at skill-match time
   resumeId: text("resume_id").references(() => documents.id, {
     onDelete: "set null",
   }),
@@ -70,6 +71,7 @@ export const stageSchedule = sqliteTable(
     stage: text("stage").notNull(),
     scheduledFor: text("scheduled_for").notNull(),
     prepNotes: text("prep_notes"),
+    outcome: text("outcome"), // passed | failed | null = pending
   },
   (t) => [unique().on(t.jobId, t.stage)],
 );
@@ -112,6 +114,7 @@ export const leads = sqliteTable("leads", {
   locationClass: text("location_class").notNull(),
   matchedKeywords: text("matched_keywords"),
   status: text("status").notNull().default("new"),
+  fitSummary: text("fit_summary"),
   fetchedAt: text("fetched_at").notNull(),
 });
 

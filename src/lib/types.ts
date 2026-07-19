@@ -22,6 +22,7 @@ export interface Job {
   coverLetterId: string | null;
   source: "manual" | "import" | "discovery";
   skillMatch: string | null;
+  jdSnapshot: string | null;
   createdAt: string;
   updatedAt: string;
 }

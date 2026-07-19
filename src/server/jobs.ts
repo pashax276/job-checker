@@ -54,6 +54,7 @@ export function createJob(
     resumeId: input.resumeId,
     coverLetterId: input.coverLetterId,
     skillMatch: null,
+    jdSnapshot: null,
     createdAt: stamp,
     updatedAt: stamp,
   };

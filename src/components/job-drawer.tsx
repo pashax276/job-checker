@@ -355,6 +355,17 @@ function SkillMatchSection({ job }: { job: JobDetail }) {
             vs posting, checked {formatStamp(match.checkedAt)} — green covered,
             amber missing from resume
           </p>
+          {job.jdSnapshot ? (
+            <details className="group">
+              <summary className="cursor-pointer text-[10px] text-primary hover:underline">
+                posting snapshot (saved {formatStamp(match.checkedAt)} — survives
+                takedowns)
+              </summary>
+              <p className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                {job.jdSnapshot}
+              </p>
+            </details>
+          ) : null}
         </>
       ) : (
         <p className="text-[10px] text-muted-foreground">
@@ -651,9 +662,10 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() =>
-                          deleteJob.mutate(job.id, { onSuccess: onClose })
-                        }
+                        onClick={() => {
+                          deleteJob.request(job.id, `${job.company} — ${job.role}`);
+                          onClose();
+                        }}
                       >
                         Delete
                       </AlertDialogAction>

@@ -57,6 +57,13 @@
       "when": 1784492448959,
       "tag": "0007_document-experience",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784501948546,
+      "tag": "0008_jd-snapshot-outcome-fit",
+      "breakpoints": true
     }
   ]
 }

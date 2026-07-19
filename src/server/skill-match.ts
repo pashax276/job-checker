@@ -55,12 +55,18 @@ export async function refreshSkillMatch(
   });
   if (!res.ok) throw new Error(`Posting fetch failed (${res.status})`);
 
+  const postingText = stripHtmlToText(await res.text());
   const match: StoredSkillMatch = {
-    ...computeSkillMatch(resumeSkills, stripHtmlToText(await res.text())),
+    ...computeSkillMatch(resumeSkills, postingText),
     checkedAt: now.toISOString(),
   };
   db.update(jobs)
-    .set({ skillMatch: JSON.stringify(match) })
+    .set({
+      skillMatch: JSON.stringify(match),
+      // Snapshot the JD — postings get taken down, usually right before the
+      // interview when you want to re-read them.
+      jdSnapshot: postingText.slice(0, 20_000),
+    })
     .where(eq(jobs.id, jobId))
     .run();
   return match;

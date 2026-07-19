@@ -15,8 +15,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateJob } from "@/hooks/use-jobs";
+import { useCreateJob, useJobs } from "@/hooks/use-jobs";
 import { api } from "@/lib/api-client";
+import { duplicateKey } from "@/lib/import";
 import {
   EMPTY_JOB_FORM,
   validateJobForm,
@@ -37,6 +38,16 @@ export function AddJobDialog({ open, onOpenChange }: AddJobDialogProps) {
   const [contactEmail, setContactEmail] = useState("");
   const [firstNote, setFirstNote] = useState("");
   const createJob = useCreateJob();
+  const { data: existingJobs } = useJobs();
+
+  const duplicate =
+    values.company.trim() && values.role.trim()
+      ? (existingJobs ?? []).find(
+          (job) =>
+            duplicateKey(job.company, job.role) ===
+            duplicateKey(values.company, values.role),
+        )
+      : undefined;
 
   const onChange = <K extends keyof JobFormValues>(
     key: K,
@@ -125,6 +136,15 @@ export function AddJobDialog({ open, onOpenChange }: AddJobDialogProps) {
             idPrefix="add"
             autoFocusCompany
           />
+          {duplicate ? (
+            <p
+              role="status"
+              className="mt-2 rounded-md border border-status-assessment/40 bg-status-assessment/10 px-2 py-1 text-xs text-status-assessment"
+            >
+              Already tracking {duplicate.company} — {duplicate.role} (
+              {duplicate.status}). Adding will create a second entry.
+            </p>
+          ) : null}
 
           <div className="mt-3 grid grid-cols-2 gap-3 rounded-md border p-3">
             <p className="col-span-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">

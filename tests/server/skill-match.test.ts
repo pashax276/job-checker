@@ -56,6 +56,23 @@ describe("refreshSkillMatch", () => {
     expect(stored?.score).toBeCloseTo(match.score);
   });
 
+  it("snapshots the posting text on the job (postings disappear)", async () => {
+    const doc = await makeResume();
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({
+        company: "A",
+        role: "R",
+        postingUrl: "https://example.com/jd",
+        resumeId: doc.id,
+      }),
+    );
+    await refreshSkillMatch(db, job.id, fakeFetch(JD));
+    const snapshot = getJob(db, job.id)!.jdSnapshot;
+    expect(snapshot).toContain("AWS");
+    expect(snapshot).not.toContain("<body>");
+  });
+
   it("falls back to the latest resume when none is assigned", async () => {
     await makeResume();
     const job = createJob(

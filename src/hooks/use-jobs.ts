@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
 import type { Job, JobDetail, JobsQuery, Stats } from "@/lib/types";
@@ -197,16 +198,51 @@ export function useJobExtras(jobId: string | null) {
   };
 }
 
+const UNDO_WINDOW_MS = 8_000;
+
+/**
+ * Deletion with an undo window: the row disappears immediately (optimistic),
+ * the DELETE fires after 8s unless Undo is clicked.
+ */
 export function useDeleteJob() {
   const qc = useQueryClient();
-  return useMutation({
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const commit = useMutation({
     mutationFn: (id: string) =>
       api<{ deleted: string }>(`/api/jobs/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      toast.success("Job deleted");
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: jobKeys.all });
       void qc.invalidateQueries({ queryKey: jobKeys.stats });
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const request = (id: string, label = "job") => {
+    qc.setQueriesData<Job[]>({ queryKey: ["jobs", "list"] }, (old) =>
+      old?.filter((job) => job.id !== id),
+    );
+    const timer = setTimeout(() => {
+      timers.current.delete(id);
+      commit.mutate(id);
+    }, UNDO_WINDOW_MS);
+    timers.current.set(id, timer);
+    toast(`Deleted ${label}`, {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const pending = timers.current.get(id);
+          if (pending) {
+            clearTimeout(pending);
+            timers.current.delete(id);
+          }
+          void qc.invalidateQueries({ queryKey: jobKeys.all });
+          toast.success("Restored");
+        },
+      },
+    });
+  };
+
+  return { request, isPending: commit.isPending };
 }

@@ -25,6 +25,7 @@ const job = (over: Partial<Job>): Job => ({
   coverLetterId: null,
   source: "manual" as const,
   skillMatch: null,
+  jdSnapshot: null,
   createdAt: "2026-07-05T00:00:00.000Z",
   updatedAt: "2026-07-05T00:00:00.000Z",
   ...over,
