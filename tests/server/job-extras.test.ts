@@ -202,6 +202,26 @@ describe("documents", () => {
   });
 });
 
+describe("listAllSchedules", () => {
+  it("joins job context and carries prep notes for the Prep page", async () => {
+    const { listAllSchedules, upsertStageSchedule } = await import(
+      "@/server/schedule"
+    );
+    upsertStageSchedule(db, jobId, "Screen", "2026-07-22", "Ask about on-call");
+    const rows = listAllSchedules(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      jobId,
+      company: "Acme",
+      role: "Senior SRE",
+      stage: "Screen",
+      scheduledFor: "2026-07-22",
+      prepNotes: "Ask about on-call",
+      status: "Evaluating",
+    });
+  });
+});
+
 describe("Applied schedule syncs dateApplied", () => {
   it("booking the Applied step writes jobs.dateApplied", async () => {
     const { upsertStageSchedule } = await import("@/server/schedule");

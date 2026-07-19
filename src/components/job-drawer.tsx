@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Copy, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DueBadge, StatusBadge, TierBadge } from "@/components/badges";
@@ -274,28 +275,18 @@ function ScheduleSection({
                 <span className="w-3" aria-hidden />
               )}
             </div>
-            {booked ? (
-              <Textarea
-                aria-label={`${stage} prep notes`}
-                placeholder="Prep notes — questions to ask, topics to review…"
-                rows={1}
-                className="field-sizing-content min-h-7 resize-y text-xs"
-                defaultValue={entry?.prepNotes ?? ""}
-                onBlur={(e) => {
-                  const next = e.target.value.trim();
-                  if (next !== (entry?.prepNotes ?? "")) {
-                    setSchedule.mutate({
-                      stage,
-                      scheduledFor: booked,
-                      prepNotes: next || null,
-                    });
-                  }
-                }}
-              />
-            ) : null}
           </div>
         );
       })}
+      {schedule.length > 0 ? (
+        <p className="text-[10px] text-muted-foreground">
+          Interview questions &amp; prep notes live on the{" "}
+          <Link href="/prep" className="text-primary hover:underline">
+            Prep page
+          </Link>
+          .
+        </p>
+      ) : null}
     </div>
   );
 }

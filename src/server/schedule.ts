@@ -10,9 +10,12 @@ export interface ScheduleWithJob {
   role: string;
   stage: string;
   scheduledFor: string;
+  prepNotes: string | null;
+  status: string;
+  postingUrl: string | null;
 }
 
-/** Every booked step joined with its job — feeds the ICS calendar. */
+/** Every booked step joined with its job — ICS calendar and the Prep page. */
 export function listAllSchedules(db: DB): ScheduleWithJob[] {
   return db
     .select({
@@ -21,6 +24,9 @@ export function listAllSchedules(db: DB): ScheduleWithJob[] {
       role: jobs.role,
       stage: stageSchedule.stage,
       scheduledFor: stageSchedule.scheduledFor,
+      prepNotes: stageSchedule.prepNotes,
+      status: jobs.status,
+      postingUrl: jobs.postingUrl,
     })
     .from(stageSchedule)
     .innerJoin(jobs, eq(stageSchedule.jobId, jobs.id))
