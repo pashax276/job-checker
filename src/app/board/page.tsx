@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Columns } from "lucide-react";
+import { Columns, Rows3 } from "lucide-react";
 import { useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
@@ -44,12 +44,32 @@ function JobCard({
   job,
   onOpen,
   dragging,
+  compact,
 }: {
   job: Job;
   onOpen?: (id: string) => void;
   dragging?: boolean;
+  compact?: boolean;
 }) {
   const due = isFollowUpDue(job.followUpDate, new Date());
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen?.(job.id)}
+        className={cn(
+          "flex w-full items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-left shadow-xs transition-colors hover:border-ring/40",
+          due && "border-l-2 border-l-due",
+          dragging && "opacity-90 shadow-lg",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate text-xs leading-tight">
+          {job.company}
+        </span>
+        <TierBadge tier={job.priorityTier} className="px-1 text-[9px]" />
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -69,6 +89,11 @@ function JobCard({
       <span className="mt-1.5 flex items-center gap-1.5">
         <TierBadge tier={job.priorityTier} />
         {due ? <DueBadge /> : null}
+        {job.compNotes ? (
+          <span className="font-data min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground">
+            {job.compNotes}
+          </span>
+        ) : null}
       </span>
     </button>
   );
@@ -77,9 +102,11 @@ function JobCard({
 function DraggableCard({
   job,
   onOpen,
+  compact,
 }: {
   job: Job;
   onOpen: (id: string) => void;
+  compact?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
@@ -91,7 +118,7 @@ function DraggableCard({
       {...listeners}
       className={cn(isDragging && "opacity-30")}
     >
-      <JobCard job={job} onOpen={onOpen} />
+      <JobCard job={job} onOpen={onOpen} compact={compact} />
     </li>
   );
 }
@@ -100,10 +127,12 @@ function Column({
   status,
   jobs,
   onOpen,
+  compact,
 }: {
   status: Status;
   jobs: Job[];
   onOpen: (id: string) => void;
+  compact?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
@@ -122,9 +151,14 @@ function Column({
           {jobs.length}
         </span>
       </header>
-      <ul className="flex min-h-16 flex-1 flex-col gap-1.5 overflow-y-auto p-2 pt-0">
+      <ul
+        className={cn(
+          "flex min-h-16 flex-1 flex-col overflow-y-auto p-2 pt-0",
+          compact ? "gap-1" : "gap-1.5",
+        )}
+      >
         {jobs.map((job) => (
-          <DraggableCard key={job.id} job={job} onOpen={onOpen} />
+          <DraggableCard key={job.id} job={job} onOpen={onOpen} compact={compact} />
         ))}
       </ul>
     </section>
@@ -151,6 +185,18 @@ export default function BoardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Set<Status>>(loadHiddenColumns);
+  const [compact, setCompact] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("board-density") === "compact",
+  );
+
+  const toggleDensity = () => {
+    setCompact((prev) => {
+      window.localStorage.setItem("board-density", prev ? "normal" : "compact");
+      return !prev;
+    });
+  };
 
   const toggleColumn = (status: Status, visible: boolean) => {
     setHiddenColumns((prev) => {
@@ -191,7 +237,16 @@ export default function BoardPage() {
 
   return (
     <div className="flex h-full flex-col gap-2 p-4">
-      <div className="flex shrink-0 justify-end">
+      <div className="flex shrink-0 justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 text-xs"
+          onClick={toggleDensity}
+        >
+          <Rows3 className="size-3.5" aria-hidden />
+          {compact ? "Comfortable" : "Compact"}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -231,6 +286,7 @@ export default function BoardPage() {
               status={status}
               jobs={byStatus.get(status) ?? []}
               onOpen={setSelectedId}
+              compact={compact}
             />
           ))}
         </div>

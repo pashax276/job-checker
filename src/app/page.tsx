@@ -379,6 +379,48 @@ export default function DashboardPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">
+                Conversion funnel
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  furthest stage ever reached
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {stats.funnel.map((stage) => {
+                const total = stats.funnel[0]?.reached ?? 1;
+                const width = total > 0 ? (stage.reached / total) * 100 : 0;
+                return (
+                  <div key={stage.status} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 truncate text-[11px] text-muted-foreground">
+                      {stage.status}
+                    </span>
+                    <span className="h-3 min-w-0 flex-1 rounded-sm bg-muted">
+                      <span
+                        className="block h-full rounded-sm"
+                        style={{
+                          width: `${width}%`,
+                          background: STATUS_VAR[stage.status],
+                          minWidth: stage.reached > 0 ? 3 : 0,
+                        }}
+                      />
+                    </span>
+                    <span className="font-data w-8 shrink-0 text-right text-xs">
+                      {stage.reached}
+                    </span>
+                    <span className="font-data w-10 shrink-0 text-right text-[10px] text-muted-foreground">
+                      {stage.conversion !== null
+                        ? `${Math.round(stage.conversion * 100)}%`
+                        : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
                 Days in current stage
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
                   active jobs, longest first

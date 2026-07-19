@@ -45,10 +45,13 @@ test.describe("smoke", () => {
     await expect(page.getByText(/\d+ jobs/)).toBeVisible();
   });
 
-  test("row click opens the job drawer with history", async ({ page }) => {
+  test("row click opens the job drawer with timeline and contacts", async ({
+    page,
+  }) => {
     await page.goto("/table");
     await page.locator("tbody tr").first().click();
-    await expect(page.getByText("Status history")).toBeVisible();
+    await expect(page.getByText("Timeline", { exact: true })).toBeVisible();
+    await expect(page.getByText("Contacts", { exact: true })).toBeVisible();
   });
 
   test("inline status change persists across reload", async ({ page }) => {

@@ -6,6 +6,7 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type RowSelectionState,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
@@ -97,12 +98,43 @@ function TableView() {
   const [dueOnly, setDueOnly] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: jobs, isLoading } = useJobs({ status, tier, q, dueOnly });
+  const updateJob = useUpdateJob();
+
+  const selectedIds = Object.keys(rowSelection).filter((k) => rowSelection[k]);
+  const bulkApply = (patch: Partial<Job>) => {
+    for (const id of selectedIds) {
+      updateJob.mutate({ id, patch });
+    }
+    setRowSelection({});
+  };
 
   const columns = useMemo<ColumnDef<Job>[]>(
     () => [
+      {
+        id: "select",
+        enableSorting: false,
+        enableHiding: false,
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllRowsSelected()}
+            onCheckedChange={(v) => table.toggleAllRowsSelected(v === true)}
+            aria-label="Select all rows"
+          />
+        ),
+        cell: ({ row }) => (
+          <span onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(v) => row.toggleSelected(v === true)}
+              aria-label={`Select ${row.original.company}`}
+            />
+          </span>
+        ),
+      },
       { accessorKey: "company", header: "Company" },
       { accessorKey: "role", header: "Role" },
       {
@@ -166,6 +198,15 @@ function TableView() {
         ),
       },
       {
+        accessorKey: "resumeVersion",
+        header: "Resume",
+        cell: ({ getValue }) => (
+          <span className="font-data text-xs text-muted-foreground">
+            {(getValue() as string | null) ?? "—"}
+          </span>
+        ),
+      },
+      {
         accessorKey: "notes",
         header: "Notes",
         cell: ({ getValue }) => (
@@ -202,9 +243,12 @@ function TableView() {
   const table = useReactTable({
     data: jobs ?? EMPTY_JOBS,
     columns,
-    state: { sorting, columnVisibility },
+    state: { sorting, columnVisibility, rowSelection },
+    getRowId: (row) => row.id,
+    enableRowSelection: true,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
@@ -295,6 +339,46 @@ function TableView() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {selectedIds.length > 0 ? (
+        <div className="flex items-center gap-3 rounded-md border bg-accent/40 px-3 py-1.5">
+          <span className="font-data text-xs">
+            {selectedIds.length} selected
+          </span>
+          <Select value="" onValueChange={(v) => v && bulkApply({ status: v as Status })}>
+            <SelectTrigger size="sm" className="w-36 text-xs">
+              <SelectValue placeholder="Set status…" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s} className="text-xs">
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value="" onValueChange={(v) => v && bulkApply({ priorityTier: v as Tier })}>
+            <SelectTrigger size="sm" className="w-36 text-xs">
+              <SelectValue placeholder="Set tier…" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIERS.map((t) => (
+                <SelectItem key={t} value={t} className="text-xs">
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setRowSelection({})}
+          >
+            Clear selection
+          </Button>
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
         <Table>

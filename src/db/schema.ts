@@ -13,8 +13,32 @@ export const jobs = sqliteTable("jobs", {
   contact: text("contact"),
   notes: text("notes"),
   postingUrl: text("posting_url"),
+  resumeVersion: text("resume_version"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+// Structured contacts per job (the legacy jobs.contact text stays as-is).
+export const contacts = sqliteTable("contacts", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  role: text("role"),
+  email: text("email"),
+  lastTouch: text("last_touch"),
+  createdAt: text("created_at").notNull(),
+});
+
+// Free-text activity log per job, merged with status history in the drawer.
+export const activity = sqliteTable("activity", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  note: text("note").notNull(),
+  createdAt: text("created_at").notNull(),
 });
 
 export const statusHistory = sqliteTable("status_history", {
@@ -55,5 +79,7 @@ export const settings = sqliteTable("settings", {
 
 export type JobRecord = typeof jobs.$inferSelect;
 export type StatusHistoryRecord = typeof statusHistory.$inferSelect;
+export type ContactRecord = typeof contacts.$inferSelect;
+export type ActivityRecord = typeof activity.$inferSelect;
 export type WatchlistRecord = typeof watchlist.$inferSelect;
 export type LeadRecord = typeof leads.$inferSelect;

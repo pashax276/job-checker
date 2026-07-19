@@ -106,6 +106,56 @@ export function useUpdateJob() {
   });
 }
 
+/** Mutations for drawer sub-resources; all refresh the job detail. */
+export function useJobExtras(jobId: string | null) {
+  const qc = useQueryClient();
+  const refresh = () => {
+    if (jobId) void qc.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+    void qc.invalidateQueries({ queryKey: jobKeys.stats });
+  };
+  const onError = (err: Error) => toast.error(err.message);
+
+  const addContact = useMutation({
+    mutationFn: (input: { name: string; email?: string; role?: string }) =>
+      api(`/api/jobs/${jobId}/contacts`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+  const touchContact = useMutation({
+    mutationFn: ({ id, lastTouch }: { id: string; lastTouch: string }) =>
+      api(`/api/contacts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ lastTouch }),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+  const removeContact = useMutation({
+    mutationFn: (id: string) => api(`/api/contacts/${id}`, { method: "DELETE" }),
+    onSuccess: refresh,
+    onError,
+  });
+  const addActivity = useMutation({
+    mutationFn: (note: string) =>
+      api(`/api/jobs/${jobId}/activity`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+  const removeActivity = useMutation({
+    mutationFn: (id: string) => api(`/api/activity/${id}`, { method: "DELETE" }),
+    onSuccess: refresh,
+    onError,
+  });
+
+  return { addContact, touchContact, removeContact, addActivity, removeActivity };
+}
+
 export function useDeleteJob() {
   const qc = useQueryClient();
   return useMutation({

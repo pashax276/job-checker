@@ -14,8 +14,36 @@ export interface Job {
   contact: string | null;
   notes: string | null;
   postingUrl: string | null;
+  resumeVersion: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Contact {
+  id: string;
+  jobId: string;
+  name: string;
+  role: string | null;
+  email: string | null;
+  lastTouch: string | null;
+  createdAt: string;
+}
+
+export interface ActivityEntry {
+  id: string;
+  jobId: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface Reminder {
+  key: string;
+  rule: "no-reply" | "thank-you" | "stale-evaluating";
+  jobId: string;
+  company: string;
+  role: string;
+  status: Status;
+  message: string;
 }
 
 export interface StatusHistoryEntry {
@@ -28,6 +56,8 @@ export interface StatusHistoryEntry {
 
 export interface JobDetail extends Job {
   statusHistory: StatusHistoryEntry[];
+  contacts: Contact[];
+  activityLog: ActivityEntry[];
 }
 
 export interface OverdueItem {
@@ -47,11 +77,18 @@ export interface AgingItem {
   daysInCurrentStage: number;
 }
 
+export interface FunnelStage {
+  status: Status;
+  reached: number;
+  conversion: number | null;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
   overdue: OverdueItem[];
   aging: AgingItem[];
+  funnel: FunnelStage[];
   newLeads: number;
 }
 

@@ -4,13 +4,21 @@ import type { DB } from "@/db/client";
 import {
   jobs,
   statusHistory,
+  type ActivityRecord,
+  type ContactRecord,
   type JobRecord,
   type StatusHistoryRecord,
 } from "@/db/schema";
 import { toLocalIsoDate } from "@/lib/dates";
 import type { JobCreate, JobPatch, ListQuery } from "@/lib/schemas";
+import { listActivity } from "@/server/activity";
+import { listContacts } from "@/server/contacts";
 
-export type JobDetail = JobRecord & { statusHistory: StatusHistoryRecord[] };
+export type JobDetail = JobRecord & {
+  statusHistory: StatusHistoryRecord[];
+  contacts: ContactRecord[];
+  activityLog: ActivityRecord[];
+};
 
 export function createJob(db: DB, input: JobCreate, now = new Date()): JobRecord {
   const stamp = now.toISOString();
@@ -27,6 +35,7 @@ export function createJob(db: DB, input: JobCreate, now = new Date()): JobRecord
     contact: input.contact,
     notes: input.notes,
     postingUrl: input.postingUrl,
+    resumeVersion: input.resumeVersion,
     createdAt: stamp,
     updatedAt: stamp,
   };
@@ -54,7 +63,12 @@ export function getJob(db: DB, id: string): JobDetail | null {
     .where(eq(statusHistory.jobId, id))
     .orderBy(asc(statusHistory.changedAt))
     .all();
-  return { ...job, statusHistory: history };
+  return {
+    ...job,
+    statusHistory: history,
+    contacts: listContacts(db, id),
+    activityLog: listActivity(db, id),
+  };
 }
 
 export function updateJob(

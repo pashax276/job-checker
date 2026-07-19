@@ -34,6 +34,7 @@ export const jobCreateSchema = z.strictObject({
   contact: nullableText(),
   notes: nullableText(),
   postingUrl: nullableUrl(),
+  resumeVersion: nullableText(),
 });
 
 // Patch semantics: absent key = leave unchanged, explicit null = clear.
@@ -50,6 +51,25 @@ export const jobPatchSchema = z.strictObject({
   contact: nullableText().optional(),
   notes: nullableText().optional(),
   postingUrl: nullableUrl().optional(),
+  resumeVersion: nullableText().optional(),
+});
+
+export const contactCreateSchema = z.strictObject({
+  name: z.string().trim().min(1, "Name is required"),
+  role: nullableText(),
+  email: z.preprocess(toNull, z.email().nullable()),
+  lastTouch: nullableIsoDate(),
+});
+
+export const contactPatchSchema = z.strictObject({
+  name: z.string().trim().min(1).optional(),
+  role: nullableText().optional(),
+  email: z.preprocess(toNull, z.email().nullable()).optional(),
+  lastTouch: nullableIsoDate().optional(),
+});
+
+export const activityCreateSchema = z.strictObject({
+  note: z.string().trim().min(1, "Note is required"),
 });
 
 export const listQuerySchema = z.object({
@@ -62,3 +82,6 @@ export const listQuerySchema = z.object({
 export type JobCreate = z.output<typeof jobCreateSchema>;
 export type JobPatch = z.output<typeof jobPatchSchema>;
 export type ListQuery = z.output<typeof listQuerySchema>;
+export type ContactCreate = z.output<typeof contactCreateSchema>;
+export type ContactPatch = z.output<typeof contactPatchSchema>;
+export type ActivityCreate = z.output<typeof activityCreateSchema>;

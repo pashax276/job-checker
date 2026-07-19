@@ -17,6 +17,7 @@ const job = (over: Partial<Job>): Job => ({
   contact: null,
   notes: null,
   postingUrl: null,
+  resumeVersion: null,
   createdAt: "2026-07-01T00:00:00.000Z",
   updatedAt: "2026-07-01T00:00:00.000Z",
   ...over,

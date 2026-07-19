@@ -3,6 +3,7 @@ import type { DB } from "@/db/client";
 import { jobs, leads, statusHistory } from "@/db/schema";
 import {
   ACTIVE_EXCLUDED_STATUSES,
+  PIPELINE_FLOW,
   STATUSES,
   type Status,
 } from "@/lib/constants";
@@ -25,11 +26,19 @@ export interface AgingItem {
   daysInCurrentStage: number;
 }
 
+export interface FunnelStage {
+  status: Status;
+  reached: number;
+  /** reached / previous stage's reached; null for the first stage. */
+  conversion: number | null;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
   overdue: OverdueItem[];
   aging: AgingItem[];
+  funnel: FunnelStage[];
   newLeads: number;
 }
 
@@ -127,9 +136,60 @@ export function getStats(db: DB, today = new Date()): Stats {
     }))
     .sort((a, b) => b.daysInCurrentStage - a.daysInCurrentStage);
 
+  // Conversion funnel: how far did each job ever get? Furthest stage =
+  // max of (Evaluating for everyone, Applied when dateApplied exists, every
+  // pipeline stage seen in history, the current stage if still in the flow).
+  const allJobs = db
+    .select({
+      id: jobs.id,
+      status: jobs.status,
+      dateApplied: jobs.dateApplied,
+    })
+    .from(jobs)
+    .all();
+  const historyStages = db
+    .select({ jobId: statusHistory.jobId, toStatus: statusHistory.toStatus })
+    .from(statusHistory)
+    .all();
+  const stagesByJob = new Map<string, string[]>();
+  for (const row of historyStages) {
+    stagesByJob.set(row.jobId, [
+      ...(stagesByJob.get(row.jobId) ?? []),
+      row.toStatus,
+    ]);
+  }
+  const flowIndex = new Map(PIPELINE_FLOW.map((s, i) => [s as string, i]));
+  const appliedIndex = flowIndex.get("Applied")!;
+  const reachedIndexOf = (job: (typeof allJobs)[number]): number => {
+    const candidates = [0];
+    if (job.dateApplied) candidates.push(appliedIndex);
+    const current = flowIndex.get(job.status);
+    if (current !== undefined) candidates.push(current);
+    for (const stage of stagesByJob.get(job.id) ?? []) {
+      const idx = flowIndex.get(stage);
+      if (idx !== undefined) candidates.push(idx);
+    }
+    return Math.max(...candidates);
+  };
+  const reachedIndices = allJobs.map(reachedIndexOf);
+  const funnel: FunnelStage[] = PIPELINE_FLOW.map((status, i) => ({
+    status,
+    reached: reachedIndices.filter((r) => r >= i).length,
+    conversion: null as number | null,
+  }));
+  for (let i = 1; i < funnel.length; i++) {
+    funnel[i] = {
+      ...funnel[i],
+      conversion:
+        funnel[i - 1].reached > 0
+          ? funnel[i].reached / funnel[i - 1].reached
+          : null,
+    };
+  }
+
   const newLeads =
     db.select({ n: count() }).from(leads).where(eq(leads.status, "new")).get()
       ?.n ?? 0;
 
-  return { statusCounts, activeTotal, overdue, aging, newLeads };
+  return { statusCounts, activeTotal, overdue, aging, funnel, newLeads };
 }

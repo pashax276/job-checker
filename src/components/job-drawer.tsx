@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowRight, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { DueBadge, StatusBadge, TierBadge } from "@/components/badges";
 import {
@@ -34,15 +34,26 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { StageJourney } from "@/components/stage-journey";
-import { useDeleteJob, useJob, useUpdateJob } from "@/hooks/use-jobs";
+import {
+  useDeleteJob,
+  useJob,
+  useJobExtras,
+  useUpdateJob,
+} from "@/hooks/use-jobs";
 import { STATUSES, TIERS, type Status, type Tier } from "@/lib/constants";
 import {
   daysInCurrentStage,
   daysSinceApplied,
   isFollowUpDue,
+  toLocalIsoDate,
 } from "@/lib/dates";
 import { jobPatchSchema } from "@/lib/schemas";
-import type { JobDetail } from "@/lib/types";
+import type {
+  ActivityEntry,
+  Contact,
+  JobDetail,
+  StatusHistoryEntry,
+} from "@/lib/types";
 
 interface JobDrawerProps {
   jobId: string | null;
@@ -60,6 +71,7 @@ interface DraftState {
   nextAction: string;
   contact: string;
   postingUrl: string;
+  resumeVersion: string;
   notes: string;
 }
 
@@ -75,6 +87,7 @@ function toDraft(job: JobDetail): DraftState {
     nextAction: job.nextAction ?? "",
     contact: job.contact ?? "",
     postingUrl: job.postingUrl ?? "",
+    resumeVersion: job.resumeVersion ?? "",
     notes: job.notes ?? "",
   };
 }
@@ -85,6 +98,216 @@ function formatStamp(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function ContactsSection({
+  jobId,
+  contacts,
+}: {
+  jobId: string;
+  contacts: Contact[];
+}) {
+  const { addContact, touchContact, removeContact } = useJobExtras(jobId);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  return (
+    <div className="space-y-1.5">
+      {contacts.map((contact) => (
+        <div
+          key={contact.id}
+          className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">
+              {contact.name}
+              {contact.role ? (
+                <span className="ml-1.5 font-normal text-muted-foreground">
+                  {contact.role}
+                </span>
+              ) : null}
+            </span>
+            {contact.email ? (
+              <a
+                href={`mailto:${contact.email}`}
+                className="block truncate text-muted-foreground hover:text-primary hover:underline"
+              >
+                {contact.email}
+              </a>
+            ) : null}
+          </span>
+          <span className="font-data shrink-0 text-[10px] text-muted-foreground">
+            {contact.lastTouch ? `touched ${contact.lastTouch}` : "never touched"}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={touchContact.isPending}
+            onClick={() =>
+              touchContact.mutate({
+                id: contact.id,
+                lastTouch: toLocalIsoDate(new Date()),
+              })
+            }
+          >
+            Touch
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-destructive hover:text-destructive"
+            aria-label={`Remove ${contact.name}`}
+            onClick={() => removeContact.mutate(contact.id)}
+          >
+            <Trash2 className="size-3" aria-hidden />
+          </Button>
+        </div>
+      ))}
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!name.trim()) return;
+          addContact.mutate(
+            { name: name.trim(), ...(email.trim() ? { email: email.trim() } : {}) },
+            {
+              onSuccess: () => {
+                setName("");
+                setEmail("");
+              },
+            },
+          );
+        }}
+      >
+        <Input
+          placeholder="Name"
+          className="h-7 text-xs"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          placeholder="Email (optional)"
+          type="email"
+          className="h-7 text-xs"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="h-7 shrink-0 text-xs"
+          disabled={addContact.isPending || !name.trim()}
+        >
+          Add
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+type TimelineItem =
+  | { kind: "status"; ts: string; status: StatusHistoryEntry }
+  | { kind: "note"; ts: string; note: ActivityEntry };
+
+function Timeline({ job }: { job: JobDetail }) {
+  const { addActivity, removeActivity } = useJobExtras(job.id);
+  const [draft, setDraftNote] = useState("");
+
+  const items: TimelineItem[] = [
+    ...job.statusHistory.map<TimelineItem>((entry) => ({
+      kind: "status",
+      ts: entry.changedAt,
+      status: entry,
+    })),
+    ...job.activityLog.map<TimelineItem>((entry) => ({
+      kind: "note",
+      ts: entry.createdAt,
+      note: entry,
+    })),
+  ].sort((a, b) => b.ts.localeCompare(a.ts));
+
+  return (
+    <div className="space-y-2">
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!draft.trim()) return;
+          addActivity.mutate(draft.trim(), {
+            onSuccess: () => setDraftNote(""),
+          });
+        }}
+      >
+        <Input
+          placeholder="Log a note — “phone screen went well, asked about…”"
+          className="h-7 text-xs"
+          value={draft}
+          onChange={(e) => setDraftNote(e.target.value)}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="h-7 shrink-0 text-xs"
+          disabled={addActivity.isPending || !draft.trim()}
+        >
+          Log
+        </Button>
+      </form>
+      <ol className="space-y-1.5">
+        {items.map((item) =>
+          item.kind === "status" ? (
+            <li
+              key={`s-${item.status.id}`}
+              className="flex items-center gap-2 text-xs"
+            >
+              <span className="font-data w-24 shrink-0 text-muted-foreground">
+                {formatStamp(item.ts)}
+              </span>
+              {item.status.fromStatus ? (
+                <>
+                  <StatusBadge status={item.status.fromStatus} />
+                  <ArrowRight
+                    className="size-3 text-muted-foreground"
+                    aria-hidden
+                  />
+                </>
+              ) : (
+                <span className="text-muted-foreground">created as</span>
+              )}
+              <StatusBadge status={item.status.toStatus} />
+            </li>
+          ) : (
+            <li
+              key={`n-${item.note.id}`}
+              className="group flex items-start gap-2 text-xs"
+            >
+              <span className="font-data w-24 shrink-0 pt-px text-muted-foreground">
+                {formatStamp(item.ts)}
+              </span>
+              <MessageSquare
+                className="mt-0.5 size-3 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 whitespace-pre-wrap">
+                {item.note.note}
+              </span>
+              <button
+                type="button"
+                aria-label="Delete note"
+                className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                onClick={() => removeActivity.mutate(item.note.id)}
+              >
+                <Trash2 className="size-3" aria-hidden />
+              </button>
+            </li>
+          ),
+        )}
+      </ol>
+    </div>
+  );
 }
 
 export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
@@ -260,13 +483,22 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                   onChange={(e) => set("nextAction", e.target.value)}
                 />
               </div>
-              <div className="col-span-2 space-y-1">
+              <div className="space-y-1">
                 <Label htmlFor="d-url">Posting URL</Label>
                 <Input
                   id="d-url"
                   type="url"
                   value={draft.postingUrl}
                   onChange={(e) => set("postingUrl", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="d-resume">Resume version</Label>
+                <Input
+                  id="d-resume"
+                  placeholder="e.g. v3-platform"
+                  value={draft.resumeVersion}
+                  onChange={(e) => set("resumeVersion", e.target.value)}
                 />
               </div>
               <div className="col-span-2 space-y-1">
@@ -338,34 +570,18 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                 currentStatus={job.status}
               />
             </div>
+            <div className="space-y-2 p-4 pb-0">
+              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Contacts
+              </h3>
+              <ContactsSection jobId={job.id} contacts={job.contacts} />
+            </div>
+
             <div className="space-y-2 p-4">
               <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Status history
+                Timeline
               </h3>
-              <ol className="space-y-1.5">
-                {[...job.statusHistory].reverse().map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="flex items-center gap-2 text-xs"
-                  >
-                    <span className="font-data w-24 shrink-0 text-muted-foreground">
-                      {formatStamp(entry.changedAt)}
-                    </span>
-                    {entry.fromStatus ? (
-                      <>
-                        <StatusBadge status={entry.fromStatus} />
-                        <ArrowRight
-                          className="size-3 text-muted-foreground"
-                          aria-hidden
-                        />
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">created as</span>
-                    )}
-                    <StatusBadge status={entry.toStatus} />
-                  </li>
-                ))}
-              </ol>
+              <Timeline job={job} />
             </div>
           </>
         ) : (

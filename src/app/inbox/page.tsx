@@ -1,12 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, MapPin } from "lucide-react";
+import { BellRing, ExternalLink, MapPin } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
+import { StatusBadge } from "@/components/badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api-client";
+import type { Reminder } from "@/lib/types";
 
 interface Lead {
   id: string;
@@ -32,6 +35,78 @@ function keywords(lead: Lead): string[] {
   } catch {
     return [];
   }
+}
+
+const RULE_LABEL: Record<Reminder["rule"], string> = {
+  "no-reply": "No reply",
+  "thank-you": "Thank-you note",
+  "stale-evaluating": "Stale",
+};
+
+function RemindersSection() {
+  const qc = useQueryClient();
+  const { data: reminders } = useQuery({
+    queryKey: ["reminders"],
+    queryFn: () => api<Reminder[]>("/api/reminders"),
+  });
+  const dismiss = useMutation({
+    mutationFn: (key: string) =>
+      api("/api/reminders", {
+        method: "PATCH",
+        body: JSON.stringify({ key, action: "dismiss" }),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["reminders"] }),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  if (!reminders || reminders.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <BellRing className="size-3.5 text-muted-foreground" aria-hidden />
+          Reminders
+          <span className="font-data text-xs text-muted-foreground">
+            {reminders.length}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1.5">
+        {reminders.map((reminder) => (
+          <div
+            key={reminder.key}
+            className="flex items-center gap-3 rounded-md border px-3 py-2"
+          >
+            <Badge variant="outline" className="font-data shrink-0 text-[10px]">
+              {RULE_LABEL[reminder.rule]}
+            </Badge>
+            <span className="min-w-0 flex-1">
+              <Link
+                href={`/table?q=${encodeURIComponent(reminder.company)}`}
+                className="block truncate text-sm hover:underline"
+              >
+                {reminder.company} — {reminder.role}
+              </Link>
+              <span className="block truncate text-xs text-muted-foreground">
+                {reminder.message}
+              </span>
+            </span>
+            <StatusBadge status={reminder.status} />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              disabled={dismiss.isPending}
+              onClick={() => dismiss.mutate(reminder.key)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function InboxPage() {
@@ -60,17 +135,15 @@ export default function InboxPage() {
     return <div className="p-6 text-sm text-muted-foreground">Loading inbox…</div>;
   }
 
-  if (leads.length === 0) {
-    return (
-      <div className="p-6 text-sm text-muted-foreground">
-        No new leads. Configure the watchlist and alert feeds in Settings, then
-        use “Run discovery now”.
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 p-4">
+      <RemindersSection />
+      {leads.length === 0 ? (
+        <p className="px-2 text-sm text-muted-foreground">
+          No new leads. Configure the watchlist and alert feeds in Settings,
+          then use “Run discovery now”.
+        </p>
+      ) : null}
       {GROUPS.map((group) => {
         const grouped = leads.filter((l) => l.locationClass === group);
         if (grouped.length === 0) return null;
