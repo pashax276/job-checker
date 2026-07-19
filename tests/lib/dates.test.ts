@@ -40,6 +40,10 @@ describe("daysInCurrentStage", () => {
     const future = new Date(2026, 6, 20, 9, 0, 0).toISOString();
     expect(daysInCurrentStage(future, TODAY)).toBe(0);
   });
+
+  it("treats date-only strings as local dates (no UTC off-by-one)", () => {
+    expect(daysInCurrentStage("2026-07-10", TODAY)).toBe(7);
+  });
 });
 
 describe("isFollowUpDue", () => {

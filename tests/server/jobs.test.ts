@@ -70,7 +70,13 @@ describe("updateJob", () => {
   });
 
   it("bumps updatedAt", () => {
-    const job = make();
+    // explicit stamps on both sides: wall-clock "now" must never race a
+    // hardcoded update time
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "Acme", role: "Senior SRE" }),
+      new Date(2026, 6, 17, 12, 0, 0),
+    );
     const updated = updateJob(
       db,
       job.id,

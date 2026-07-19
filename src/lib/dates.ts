@@ -22,12 +22,20 @@ export function daysSinceApplied(
   return Math.round(diff / MS_PER_DAY);
 }
 
-/** Whole days since the last status change; clamped at 0 for future stamps. */
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whole days since the last status change; clamped at 0 for future stamps.
+ * Accepts full ISO timestamps and date-only strings (parsed as local dates —
+ * new Date("YYYY-MM-DD") would read them as UTC midnight, off by one day). */
 export function daysInCurrentStage(
   lastStatusChangeAt: string,
   today: Date,
 ): number {
-  const changed = startOfLocalDay(new Date(lastStatusChangeAt));
+  const changed = startOfLocalDay(
+    DATE_ONLY_RE.test(lastStatusChangeAt)
+      ? parseLocalDate(lastStatusChangeAt)
+      : new Date(lastStatusChangeAt),
+  );
   const diff = startOfLocalDay(today).getTime() - changed.getTime();
   return Math.max(0, Math.round(diff / MS_PER_DAY));
 }
