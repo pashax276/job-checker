@@ -9,7 +9,9 @@ export async function register(): Promise<void> {
   const { getDb, runMigrations } = await import("@/db/client");
   const { seedIfEmpty, seedWatchlistIfEmpty } = await import("@/db/seed");
   const { log } = await import("@/lib/log");
-  const { startDiscoveryCron } = await import("@/server/discovery/cron");
+  const { startBackupCron, startDiscoveryCron } = await import(
+    "@/server/discovery/cron"
+  );
 
   runMigrations();
   const { imported } = seedIfEmpty(getDb());
@@ -21,4 +23,5 @@ export async function register(): Promise<void> {
     log.info(`first run: seeded ${watch.imported} watchlist companies`);
   }
   await startDiscoveryCron();
+  await startBackupCron();
 }

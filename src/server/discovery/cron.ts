@@ -4,6 +4,36 @@ import { runDiscovery } from "@/server/discovery/run";
 
 declare global {
   var __discoveryCronStarted: boolean | undefined;
+  var __backupCronStarted: boolean | undefined;
+}
+
+/**
+ * Nightly database backup — ON by default (yesterday's disk incident is why).
+ * Disable with BACKUP_ENABLED=false; schedule via BACKUP_CRON (default 09:00
+ * UTC = 2:00 AM Pacific).
+ */
+export async function startBackupCron(): Promise<void> {
+  if (process.env.BACKUP_ENABLED === "false") return;
+  if (globalThis.__backupCronStarted) return;
+
+  const { default: cron } = await import("node-cron");
+  const expression = process.env.BACKUP_CRON ?? "0 9 * * *";
+  if (!cron.validate(expression)) {
+    log.error(`invalid BACKUP_CRON expression: ${expression}`);
+    return;
+  }
+  globalThis.__backupCronStarted = true;
+  cron.schedule(expression, () => {
+    import("@/server/backup")
+      .then(({ runBackup }) => runBackup(getDb()))
+      .then((dest) => log.info(`nightly backup written: ${dest}`))
+      .catch((err: unknown) =>
+        log.error(
+          `backup failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  });
+  log.info(`backup cron scheduled (${expression})`);
 }
 
 /**
