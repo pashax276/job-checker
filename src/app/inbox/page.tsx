@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAiStatus } from "@/hooks/use-jobs";
 import { api } from "@/lib/api-client";
 import type { Reminder } from "@/lib/types";
 
@@ -20,6 +21,7 @@ interface Lead {
   atsType: string | null;
   locationClass: "San Diego" | "Remote-US" | "Unverified";
   matchedKeywords: string | null;
+  fitSummary: string | null;
   fetchedAt: string;
 }
 
@@ -115,6 +117,14 @@ export default function InboxPage() {
     queryKey: ["leads", "new"],
     queryFn: () => api<Lead[]>("/api/leads?status=new"),
   });
+  const { data: aiStatus } = useAiStatus();
+
+  const fitCheck = useMutation({
+    mutationFn: (id: string) =>
+      api<{ text: string }>(`/api/leads/${id}/fit`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["leads"] }),
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "promote" | "dismiss" }) =>
@@ -200,7 +210,23 @@ export default function InboxPage() {
                         </span>
                       ))}
                     </div>
+                    {lead.fitSummary ? (
+                      <p className="mt-1 text-[11px] whitespace-pre-wrap text-muted-foreground">
+                        {lead.fitSummary}
+                      </p>
+                    ) : null}
                   </div>
+                  {aiStatus?.enabled ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={fitCheck.isPending}
+                      onClick={() => fitCheck.mutate(lead.id)}
+                    >
+                      {fitCheck.isPending ? "…" : lead.fitSummary ? "Re-fit" : "Fit check"}
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
                     className="h-7 text-xs"

@@ -198,6 +198,15 @@ export function useJobExtras(jobId: string | null) {
   };
 }
 
+export function useAiStatus() {
+  return useQuery({
+    queryKey: ["ai-status"],
+    queryFn: () =>
+      api<{ enabled: boolean; model: string | null }>("/api/ai/status"),
+    staleTime: Infinity,
+  });
+}
+
 const UNDO_WINDOW_MS = 8_000;
 
 /**

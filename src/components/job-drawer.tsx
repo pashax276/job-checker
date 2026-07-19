@@ -28,12 +28,15 @@ import {
 } from "@/components/ui/sheet";
 import { JobFormFields } from "@/components/job-form-fields";
 import { StageJourney } from "@/components/stage-journey";
+import { useMutation } from "@tanstack/react-query";
 import {
+  useAiStatus,
   useDeleteJob,
   useJob,
   useJobExtras,
   useUpdateJob,
 } from "@/hooks/use-jobs";
+import { api } from "@/lib/api-client";
 import {
   daysInCurrentStage,
   daysSinceApplied,
@@ -378,13 +381,39 @@ function SkillMatchSection({ job }: { job: JobDetail }) {
 
 function FollowUpEmailSection({ job }: { job: JobDetail }) {
   const [expanded, setExpanded] = useState(false);
+  const [aiDraft, setAiDraft] = useState<string | null>(null);
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
+  const { data: aiStatus } = useAiStatus();
   const contactName = job.contacts[0]?.name.split(" ")[0] ?? null;
   const draft = followUpEmail(job, contactName);
   const due = isFollowUpDue(job.followUpDate, new Date());
 
+  const aiFollowUp = useMutation({
+    mutationFn: () =>
+      api<{ text: string }>(`/api/jobs/${job.id}/ai`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "follow-up" }),
+      }),
+    onSuccess: ({ text }) => {
+      setAiDraft(text);
+      setExpanded(true);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const aiCoverLetter = useMutation({
+    mutationFn: () =>
+      api<{ text: string }>(`/api/jobs/${job.id}/ai`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "cover-letter" }),
+      }),
+    onSuccess: ({ text }) => setCoverLetter(text),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const copy = () => {
     void navigator.clipboard.writeText(
-      `Subject: ${draft.subject}\n\n${draft.body}`,
+      aiDraft ?? `Subject: ${draft.subject}\n\n${draft.body}`,
     );
     toast.success("Follow-up email copied");
   };
@@ -394,8 +423,19 @@ function FollowUpEmailSection({ job }: { job: JobDetail }) {
       <div className="flex items-center gap-2">
         {due ? <DueBadge /> : null}
         <span className="min-w-0 flex-1 truncate text-xs font-medium">
-          {draft.subject}
+          {aiDraft ? "AI draft" : draft.subject}
         </span>
+        {aiStatus?.enabled ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 gap-1 text-[10px]"
+            disabled={aiFollowUp.isPending}
+            onClick={() => aiFollowUp.mutate()}
+          >
+            {aiFollowUp.isPending ? "Drafting…" : "AI draft"}
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant="outline"
@@ -417,17 +457,56 @@ function FollowUpEmailSection({ job }: { job: JobDetail }) {
             !expanded && "line-clamp-3",
           )}
         >
-          {draft.body}
+          {aiDraft ?? draft.body}
         </p>
         <span className="text-[10px] text-primary">
           {expanded ? "collapse" : "expand"}
         </span>
       </button>
       <p className="text-[10px] text-muted-foreground">
-        Matched to the current status
-        {contactName ? `, addressed to ${contactName}` : ""} — tweak before
-        sending.
+        {aiDraft
+          ? "AI-tailored to this job — review before sending."
+          : `Matched to the current status${contactName ? `, addressed to ${contactName}` : ""} — tweak before sending.`}
       </p>
+      {aiStatus?.enabled ? (
+        <div className="border-t pt-1.5">
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-xs font-medium">Cover letter</span>
+            {coverLetter ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 gap-1 text-[10px]"
+                onClick={() => {
+                  void navigator.clipboard.writeText(coverLetter);
+                  toast.success("Cover letter copied");
+                }}
+              >
+                <Copy className="size-3" aria-hidden />
+                Copy
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px]"
+              disabled={aiCoverLetter.isPending}
+              onClick={() => aiCoverLetter.mutate()}
+            >
+              {aiCoverLetter.isPending
+                ? "Drafting…"
+                : coverLetter
+                  ? "Redraft"
+                  : "Draft (AI)"}
+            </Button>
+          </div>
+          {coverLetter ? (
+            <p className="mt-1 max-h-40 overflow-y-auto text-xs whitespace-pre-wrap text-muted-foreground">
+              {coverLetter}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

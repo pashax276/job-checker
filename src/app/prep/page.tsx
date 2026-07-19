@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, GraduationCap } from "lucide-react";
+import { ExternalLink, GraduationCap, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/badges";
@@ -9,6 +9,7 @@ import { JobDrawer } from "@/components/job-drawer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useAiStatus } from "@/hooks/use-jobs";
 import { api } from "@/lib/api-client";
 import { toLocalIsoDate } from "@/lib/dates";
 import { parseStoredSkillMatch } from "@/lib/skill-match";
@@ -52,11 +53,13 @@ function PrepCard({
   jobs,
   onOpen,
   past,
+  aiEnabled,
 }: {
   step: BookedStep;
   jobs: Job[];
   onOpen: (id: string) => void;
   past?: boolean;
+  aiEnabled?: boolean;
 }) {
   const qc = useQueryClient();
   const todayIso = toLocalIsoDate(new Date());
@@ -78,6 +81,19 @@ function PrepCard({
     onSuccess: () => {
       toast.success("Prep notes saved");
       void qc.invalidateQueries({ queryKey: ["schedule"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const generateQuestions = useMutation({
+    mutationFn: () =>
+      api<{ text: string }>(`/api/jobs/${step.jobId}/ai`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "prep", stage: step.stage }),
+      }),
+    onSuccess: ({ text }) => {
+      const merged = [step.prepNotes, text].filter(Boolean).join("\n\n---\n\n");
+      save.mutate(merged);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -179,7 +195,22 @@ function PrepCard({
             ))}
           </p>
         ) : null}
+        {aiEnabled ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 gap-1 text-[10px]"
+            disabled={generateQuestions.isPending}
+            onClick={() => generateQuestions.mutate()}
+          >
+            <Sparkles className="size-3" aria-hidden />
+            {generateQuestions.isPending
+              ? "Thinking…"
+              : "Generate likely questions (AI)"}
+          </Button>
+        ) : null}
         <PrepNotes
+          key={`${step.prepNotes?.length ?? 0}`}
           initial={step.prepNotes ?? ""}
           disabled={save.isPending}
           onSave={(text) => save.mutate(text || null)}
@@ -236,6 +267,7 @@ export default function PrepPage() {
     queryKey: ["jobs", "list", ""],
     queryFn: () => api<Job[]>("/api/jobs"),
   });
+  const { data: aiStatus } = useAiStatus();
 
   if (isLoading || !steps) {
     return <div className="p-6 text-sm text-muted-foreground">Loading prep…</div>;
@@ -275,6 +307,7 @@ export default function PrepPage() {
               step={step}
               jobs={jobs ?? []}
               onOpen={setSelectedId}
+              aiEnabled={aiStatus?.enabled}
             />
           ))}
         </div>
@@ -293,6 +326,7 @@ export default function PrepPage() {
                 jobs={jobs ?? []}
                 onOpen={setSelectedId}
                 past
+                aiEnabled={aiStatus?.enabled}
               />
             ))}
           </div>
