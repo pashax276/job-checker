@@ -222,6 +222,39 @@ describe("listAllSchedules", () => {
   });
 });
 
+describe("stage outcomes", () => {
+  it("records passed/failed on a booked step and clears back to pending", async () => {
+    const { listAllSchedules, setStageOutcome, upsertStageSchedule } =
+      await import("@/server/schedule");
+    upsertStageSchedule(db, jobId, "Screen", "2026-07-10");
+    expect(setStageOutcome(db, jobId, "Screen", "passed")).toBe(true);
+    expect(listAllSchedules(db)[0].outcome).toBe("passed");
+    expect(setStageOutcome(db, jobId, "Screen", null)).toBe(true);
+    expect(listAllSchedules(db)[0].outcome).toBeNull();
+    expect(setStageOutcome(db, jobId, "Panel", "failed")).toBe(false); // not booked
+  });
+
+  it("feeds round win rates into stats", async () => {
+    const { setStageOutcome, upsertStageSchedule } = await import(
+      "@/server/schedule"
+    );
+    const { getStats } = await import("@/server/stats");
+    const { createJob } = await import("@/server/jobs");
+    const other = createJob(
+      db,
+      jobCreateSchema.parse({ company: "B", role: "R", status: "Screen" }),
+    );
+    upsertStageSchedule(db, jobId, "Screen", "2026-07-10");
+    upsertStageSchedule(db, other.id, "Screen", "2026-07-12");
+    setStageOutcome(db, jobId, "Screen", "passed");
+    setStageOutcome(db, other.id, "Screen", "failed");
+    const rounds = getStats(db).roundStats;
+    const screen = rounds.find((r) => r.stage === "Screen");
+    expect(screen).toMatchObject({ stage: "Screen", passed: 1, failed: 1 });
+    expect(rounds.find((r) => r.stage === "Panel")).toBeUndefined();
+  });
+});
+
 describe("Applied schedule syncs dateApplied", () => {
   it("booking the Applied step writes jobs.dateApplied", async () => {
     const { upsertStageSchedule } = await import("@/server/schedule");

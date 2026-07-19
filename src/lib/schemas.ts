@@ -100,6 +100,11 @@ export const scheduleClearSchema = z.strictObject({
   stage: z.enum(SCHEDULABLE_STAGES),
 });
 
+export const scheduleOutcomeSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
+  outcome: z.enum(["passed", "failed"]).nullable(),
+});
+
 export const listQuerySchema = z.object({
   status: z.enum(STATUSES).optional(),
   tier: z.enum(TIERS).optional(),

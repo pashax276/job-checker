@@ -1,8 +1,16 @@
 import { getDb } from "@/db/client";
 import { apiError, apiOk, apiZodError } from "@/lib/api-response";
-import { scheduleClearSchema, scheduleSetSchema } from "@/lib/schemas";
+import {
+  scheduleClearSchema,
+  scheduleOutcomeSchema,
+  scheduleSetSchema,
+} from "@/lib/schemas";
 import { getJob } from "@/server/jobs";
-import { removeStageSchedule, upsertStageSchedule } from "@/server/schedule";
+import {
+  removeStageSchedule,
+  setStageOutcome,
+  upsertStageSchedule,
+} from "@/server/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +36,22 @@ export async function PUT(request: Request, ctx: Ctx): Promise<Response> {
       parsed.data.prepNotes,
     ),
   );
+}
+
+export async function PATCH(request: Request, ctx: Ctx): Promise<Response> {
+  const { id } = await ctx.params;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError("Request body must be valid JSON", 400);
+  }
+  const parsed = scheduleOutcomeSchema.safeParse(body);
+  if (!parsed.success) return apiZodError(parsed.error);
+  if (!setStageOutcome(getDb(), id, parsed.data.stage, parsed.data.outcome)) {
+    return apiError(`No booked ${parsed.data.stage} step for this job`, 404);
+  }
+  return apiOk({ stage: parsed.data.stage, outcome: parsed.data.outcome });
 }
 
 export async function DELETE(request: Request, ctx: Ctx): Promise<Response> {

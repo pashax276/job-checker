@@ -359,6 +359,25 @@ export default function DashboardPage() {
                   </div>
                 );
               })}
+              {stats.roundStats.length > 0 ? (
+                <div className="space-y-0.5 border-t pt-1.5">
+                  {stats.roundStats.map((round) => {
+                    const held = round.passed + round.failed;
+                    return (
+                      <p
+                        key={round.stage}
+                        className="flex items-center gap-2 text-[11px] text-muted-foreground"
+                      >
+                        <span className="w-24 truncate">{round.stage}</span>
+                        <span className="font-data">
+                          {round.passed}/{held} passed (
+                          {Math.round((round.passed / held) * 100)}%)
+                        </span>
+                      </p>
+                    );
+                  })}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -537,6 +556,55 @@ export default function DashboardPage() {
                     </button>
                   );
                 })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Response rate
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  Applied → any reply
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {stats.response.applied === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No applications with dates yet.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm">
+                    <span className="font-data text-lg">
+                      {stats.response.rate !== null
+                        ? `${Math.round(stats.response.rate * 100)}%`
+                        : "—"}
+                    </span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {stats.response.advanced}/{stats.response.applied} advanced
+                      {stats.response.avgDaysToFirstResponse !== null
+                        ? ` · ~${stats.response.avgDaysToFirstResponse}d to first response`
+                        : ""}
+                    </span>
+                  </p>
+                  <div className="space-y-0.5">
+                    {stats.response.byTier
+                      .filter((t) => t.applied > 0)
+                      .map((t) => (
+                        <p
+                          key={t.tier}
+                          className="flex items-center gap-2 text-[11px] text-muted-foreground"
+                        >
+                          <span className="w-16">{t.tier}</span>
+                          <span className="font-data">
+                            {t.advanced}/{t.applied}
+                          </span>
+                        </p>
+                      ))}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

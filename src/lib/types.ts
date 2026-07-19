@@ -126,6 +126,20 @@ export interface TrendPoint {
   totalJobs: number;
 }
 
+export interface RoundStat {
+  stage: string;
+  passed: number;
+  failed: number;
+}
+
+export interface ResponseStats {
+  applied: number;
+  advanced: number;
+  rate: number | null;
+  avgDaysToFirstResponse: number | null;
+  byTier: Array<{ tier: string; applied: number; advanced: number }>;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
@@ -134,6 +148,8 @@ export interface Stats {
   funnel: FunnelStage[];
   events: CalendarEvent[];
   trend: TrendPoint[];
+  roundStats: RoundStat[];
+  response: ResponseStats;
   newLeads: number;
 }
 

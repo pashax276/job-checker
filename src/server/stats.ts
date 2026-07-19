@@ -42,6 +42,20 @@ export interface CalendarEvent {
   kind: string;
 }
 
+export interface RoundStat {
+  stage: string;
+  passed: number;
+  failed: number;
+}
+
+export interface ResponseStats {
+  applied: number;
+  advanced: number;
+  rate: number | null;
+  avgDaysToFirstResponse: number | null;
+  byTier: Array<{ tier: string; applied: number; advanced: number }>;
+}
+
 export interface TrendPoint {
   weekStart: string;
   activeTotal: number;
@@ -56,6 +70,8 @@ export interface Stats {
   funnel: FunnelStage[];
   events: CalendarEvent[];
   trend: TrendPoint[];
+  roundStats: RoundStat[];
+  response: ResponseStats;
   newLeads: number;
 }
 
@@ -163,11 +179,17 @@ export function getStats(db: DB, today = new Date()): Stats {
       id: jobs.id,
       status: jobs.status,
       dateApplied: jobs.dateApplied,
+      priorityTier: jobs.priorityTier,
     })
     .from(jobs)
     .all();
   const historyStages = db
-    .select({ jobId: statusHistory.jobId, toStatus: statusHistory.toStatus })
+    .select({
+      jobId: statusHistory.jobId,
+      fromStatus: statusHistory.fromStatus,
+      toStatus: statusHistory.toStatus,
+      changedAt: statusHistory.changedAt,
+    })
     .from(statusHistory)
     .orderBy(asc(statusHistory.changedAt))
     .all();
@@ -241,6 +263,80 @@ export function getStats(db: DB, today = new Date()): Stats {
     totalJobs: row.totalJobs,
   }));
 
+  // Response analytics: of the jobs actually applied to, how many ever got
+  // past Applied, and how fast did the first response come?
+  const advancedStages = new Set(
+    PIPELINE_FLOW.slice(appliedIndex + 1) as string[],
+  );
+  const firstAdvanceAt = new Map<string, string>();
+  for (const row of historyStages) {
+    if (
+      !firstAdvanceAt.has(row.jobId) &&
+      row.fromStatus === "Applied" &&
+      advancedStages.has(row.toStatus)
+    ) {
+      firstAdvanceAt.set(row.jobId, row.changedAt);
+    }
+  }
+  const appliedJobs = allJobs.filter((j) => j.dateApplied !== null);
+  const advancedJobs = appliedJobs.filter(
+    (j) => reachedIndexOf(j) > appliedIndex,
+  );
+  const responseDays = appliedJobs.flatMap((j) => {
+    const advancedAt = firstAdvanceAt.get(j.id);
+    return advancedAt
+      ? [daysInCurrentStage(j.dateApplied!, new Date(advancedAt))]
+      : [];
+  });
+  const tierMap = new Map<string, { applied: number; advanced: number }>();
+  for (const job of appliedJobs) {
+    const entry = tierMap.get(job.priorityTier) ?? { applied: 0, advanced: 0 };
+    tierMap.set(job.priorityTier, {
+      applied: entry.applied + 1,
+      advanced:
+        entry.advanced + (reachedIndexOf(job) > appliedIndex ? 1 : 0),
+    });
+  }
+  const response: ResponseStats = {
+    applied: appliedJobs.length,
+    advanced: advancedJobs.length,
+    rate: appliedJobs.length > 0 ? advancedJobs.length / appliedJobs.length : null,
+    avgDaysToFirstResponse:
+      responseDays.length > 0
+        ? Math.round(
+            (responseDays.reduce((a, b) => a + b, 0) / responseDays.length) * 10,
+          ) / 10
+        : null,
+    byTier: [...tierMap.entries()].map(([tier, counts]) => ({
+      tier,
+      ...counts,
+    })),
+  };
+
+  // Per-round win rates from explicit outcomes on held steps.
+  const outcomeRows = db
+    .select({ stage: stageSchedule.stage, outcome: stageSchedule.outcome })
+    .from(stageSchedule)
+    .where(isNotNull(stageSchedule.outcome))
+    .all();
+  const roundMap = new Map<string, RoundStat>();
+  for (const row of outcomeRows) {
+    const entry = roundMap.get(row.stage) ?? {
+      stage: row.stage,
+      passed: 0,
+      failed: 0,
+    };
+    roundMap.set(row.stage, {
+      ...entry,
+      passed: entry.passed + (row.outcome === "passed" ? 1 : 0),
+      failed: entry.failed + (row.outcome === "failed" ? 1 : 0),
+    });
+  }
+  const roundStats = PIPELINE_FLOW.flatMap((stage) => {
+    const entry = roundMap.get(stage);
+    return entry ? [entry] : [];
+  });
+
   const newLeads =
     db.select({ n: count() }).from(leads).where(eq(leads.status, "new")).get()
       ?.n ?? 0;
@@ -253,6 +349,8 @@ export function getStats(db: DB, today = new Date()): Stats {
     funnel,
     events,
     trend,
+    roundStats,
+    response,
     newLeads,
   };
 }

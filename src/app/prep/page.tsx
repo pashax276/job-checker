@@ -22,6 +22,7 @@ interface BookedStep {
   stage: Status;
   scheduledFor: string;
   prepNotes: string | null;
+  outcome: "passed" | "failed" | null;
   status: Status;
   postingUrl: string | null;
 }
@@ -81,6 +82,19 @@ function PrepCard({
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const setOutcome = useMutation({
+    mutationFn: (outcome: "passed" | "failed" | null) =>
+      api(`/api/jobs/${step.jobId}/schedule`, {
+        method: "PATCH",
+        body: JSON.stringify({ stage: step.stage, outcome }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["schedule"] });
+      void qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   return (
     <Card className={past ? "opacity-70" : undefined}>
       <CardHeader className="flex-row items-center gap-3 pb-2">
@@ -105,6 +119,32 @@ function PrepCard({
             {step.role}
           </span>
         </CardTitle>
+        {past ? (
+          <span className="flex shrink-0 gap-1">
+            <Button
+              size="sm"
+              variant={step.outcome === "passed" ? "default" : "outline"}
+              className="h-6 px-2 text-[10px]"
+              disabled={setOutcome.isPending}
+              onClick={() =>
+                setOutcome.mutate(step.outcome === "passed" ? null : "passed")
+              }
+            >
+              Passed
+            </Button>
+            <Button
+              size="sm"
+              variant={step.outcome === "failed" ? "destructive" : "outline"}
+              className="h-6 px-2 text-[10px]"
+              disabled={setOutcome.isPending}
+              onClick={() =>
+                setOutcome.mutate(step.outcome === "failed" ? null : "failed")
+              }
+            >
+              Failed
+            </Button>
+          </span>
+        ) : null}
         {step.postingUrl ? (
           <a
             href={step.postingUrl}

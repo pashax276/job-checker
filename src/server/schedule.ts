@@ -11,6 +11,7 @@ export interface ScheduleWithJob {
   stage: string;
   scheduledFor: string;
   prepNotes: string | null;
+  outcome: string | null;
   status: string;
   postingUrl: string | null;
 }
@@ -25,6 +26,7 @@ export function listAllSchedules(db: DB): ScheduleWithJob[] {
       stage: stageSchedule.stage,
       scheduledFor: stageSchedule.scheduledFor,
       prepNotes: stageSchedule.prepNotes,
+      outcome: stageSchedule.outcome,
       status: jobs.status,
       postingUrl: jobs.postingUrl,
     })
@@ -57,6 +59,7 @@ export function upsertStageSchedule(
     stage,
     scheduledFor,
     prepNotes: prepNotes ?? null,
+    outcome: null,
   };
   db.insert(stageSchedule)
     .values(record)
@@ -78,6 +81,24 @@ export function upsertStageSchedule(
     .from(stageSchedule)
     .where(and(eq(stageSchedule.jobId, jobId), eq(stageSchedule.stage, stage)))
     .get()!;
+}
+
+export type StageOutcome = "passed" | "failed" | null;
+
+/** Mark how a held step went; null returns it to pending. */
+export function setStageOutcome(
+  db: DB,
+  jobId: string,
+  stage: Status,
+  outcome: StageOutcome,
+): boolean {
+  return (
+    db
+      .update(stageSchedule)
+      .set({ outcome })
+      .where(and(eq(stageSchedule.jobId, jobId), eq(stageSchedule.stage, stage)))
+      .run().changes > 0
+  );
 }
 
 export function removeStageSchedule(
