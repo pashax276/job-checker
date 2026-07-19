@@ -8,14 +8,18 @@ test.describe("smoke", () => {
 
   test("dashboard renders seeded stats", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Active pipeline")).toBeVisible();
-    await expect(page.getByText("Overdue follow-ups").first()).toBeVisible();
-    // all eight status count cards render
-    for (const status of ["Evaluating", "Applied", "Screen", "Offer"]) {
+    await expect(
+      page.getByText("Active pipeline", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("Follow-up queue")).toBeVisible();
+    // stage mix legend renders statuses present in the seed
+    for (const status of ["Evaluating", "Applied", "Screen"]) {
       await expect(
         page.getByText(status, { exact: true }).first(),
       ).toBeVisible();
     }
+    await expect(page.getByText("Offers open")).toBeVisible();
+    await expect(page.getByText("In interview loops")).toBeVisible();
   });
 
   test("table lists all 53 seeded jobs with a DUE badge present", async ({

@@ -191,6 +191,40 @@
     font-family: var(--font-geist-mono), ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
   }
+  /* Stage-journey timelapse (drawer): segments/dots replay left-to-right via
+     staggered animation-delay set inline per index. */
+  @keyframes journey-grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes journey-pop {
+    from {
+      transform: scale(0);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  .journey-segment {
+    transform-origin: left;
+    animation: journey-grow 300ms ease-out both;
+  }
+  .journey-dot {
+    animation: journey-pop 220ms ease-out both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .journey-segment,
+    .journey-dot {
+      animation: none;
+    }
+  }
+
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;

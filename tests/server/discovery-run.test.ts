@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, migrateDb, type DB } from "@/db/client";
-import { leads, watchlist } from "@/db/schema";
+import { watchlist } from "@/db/schema";
 import { jobCreateSchema, listQuerySchema } from "@/lib/schemas";
 import { runDiscovery } from "@/server/discovery/run";
 import { dismissLead, listLeads, promoteLead } from "@/server/leads";

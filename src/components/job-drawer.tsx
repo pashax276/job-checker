@@ -33,6 +33,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { StageJourney } from "@/components/stage-journey";
 import { useDeleteJob, useJob, useUpdateJob } from "@/hooks/use-jobs";
 import { STATUSES, TIERS, type Status, type Tier } from "@/lib/constants";
 import {
@@ -328,6 +329,15 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
             </div>
 
             <Separator />
+            <div className="space-y-2 p-4 pb-0">
+              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Journey
+              </h3>
+              <StageJourney
+                history={job.statusHistory}
+                currentStatus={job.status}
+              />
+            </div>
             <div className="space-y-2 p-4">
               <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Status history

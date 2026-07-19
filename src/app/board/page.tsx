@@ -11,9 +11,17 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { Columns } from "lucide-react";
 import { useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useJobs, useUpdateJob } from "@/hooks/use-jobs";
 import { STATUSES, type Status } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
@@ -123,11 +131,36 @@ function Column({
   );
 }
 
+const HIDDEN_COLUMNS_KEY = "board-hidden-columns";
+
+function loadHiddenColumns(): Set<Status> {
+  // Safe in the initializer: the board renders a loading state on both the
+  // server and the first client paint, so no hydration divergence.
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(HIDDEN_COLUMNS_KEY);
+    return raw ? new Set(JSON.parse(raw) as Status[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
 export default function BoardPage() {
   const { data: jobs, isLoading } = useJobs();
   const updateJob = useUpdateJob();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
+  const [hiddenColumns, setHiddenColumns] = useState<Set<Status>>(loadHiddenColumns);
+
+  const toggleColumn = (status: Status, visible: boolean) => {
+    setHiddenColumns((prev) => {
+      const next = new Set(prev);
+      if (visible) next.delete(status);
+      else next.add(status);
+      window.localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   // Distance activation keeps plain clicks working as "open drawer".
   const sensors = useSensors(
@@ -154,15 +187,45 @@ export default function BoardPage() {
     updateJob.mutate({ id: job.id, patch: { status: target } });
   };
 
+  const visibleStatuses = STATUSES.filter((s) => !hiddenColumns.has(s));
+
   return (
-    <div className="h-full overflow-x-auto p-4">
+    <div className="flex h-full flex-col gap-2 p-4">
+      <div className="flex shrink-0 justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" />
+            }
+          >
+            <Columns className="size-3.5" aria-hidden />
+            Columns
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {STATUSES.map((status) => (
+              <DropdownMenuCheckboxItem
+                key={status}
+                checked={!hiddenColumns.has(status)}
+                onCheckedChange={(v) => toggleColumn(status, v === true)}
+                className="text-xs"
+              >
+                {status}
+                <span className="font-data ml-auto pl-3 text-muted-foreground">
+                  {(byStatus.get(status) ?? []).length}
+                </span>
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="min-h-0 flex-1 overflow-x-auto">
       <DndContext
         sensors={sensors}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
         <div className="flex h-full min-w-max gap-3">
-          {STATUSES.map((status) => (
+          {visibleStatuses.map((status) => (
             <Column
               key={status}
               status={status}
@@ -175,6 +238,7 @@ export default function BoardPage() {
           {activeJob ? <JobCard job={activeJob} dragging /> : null}
         </DragOverlay>
       </DndContext>
+      </div>
       <JobDrawer jobId={selectedId} onClose={() => setSelectedId(null)} />
     </div>
   );
