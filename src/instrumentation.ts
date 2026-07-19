@@ -9,7 +9,7 @@ export async function register(): Promise<void> {
   const { getDb, runMigrations } = await import("@/db/client");
   const { seedIfEmpty, seedWatchlistIfEmpty } = await import("@/db/seed");
   const { log } = await import("@/lib/log");
-  const { startBackupCron, startDiscoveryCron } = await import(
+  const { startBackupCron, startDigestCron, startDiscoveryCron } = await import(
     "@/server/discovery/cron"
   );
 
@@ -27,4 +27,5 @@ export async function register(): Promise<void> {
 
   await startDiscoveryCron();
   await startBackupCron();
+  await startDigestCron();
 }

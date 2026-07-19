@@ -16,6 +16,9 @@ services:
       # Optional AI features (fit summaries, prep questions, tailored drafts)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - AI_MODEL=${AI_MODEL:-}
+      # Morning digest webhook (off unless set)
+      - DIGEST_WEBHOOK_URL=${DIGEST_WEBHOOK_URL:-}
+      - DIGEST_CRON=${DIGEST_CRON:-0 15 * * *}
     restart: unless-stopped
 
 volumes:

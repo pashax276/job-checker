@@ -5,6 +5,37 @@ import { runDiscovery } from "@/server/discovery/run";
 declare global {
   var __discoveryCronStarted: boolean | undefined;
   var __backupCronStarted: boolean | undefined;
+  var __digestCronStarted: boolean | undefined;
+}
+
+/**
+ * Morning digest — active only when DIGEST_WEBHOOK_URL is set (ntfy topic,
+ * Slack webhook, anything that accepts a plain-text POST). DIGEST_CRON
+ * defaults to 15:00 UTC = 8:00 AM Pacific.
+ */
+export async function startDigestCron(): Promise<void> {
+  const webhookUrl = process.env.DIGEST_WEBHOOK_URL;
+  if (!webhookUrl) return;
+  if (globalThis.__digestCronStarted) return;
+
+  const { default: cron } = await import("node-cron");
+  const expression = process.env.DIGEST_CRON ?? "0 15 * * *";
+  if (!cron.validate(expression)) {
+    log.error(`invalid DIGEST_CRON expression: ${expression}`);
+    return;
+  }
+  globalThis.__digestCronStarted = true;
+  cron.schedule(expression, () => {
+    import("@/server/digest")
+      .then(({ sendDigest }) => sendDigest(getDb(), webhookUrl))
+      .then(() => log.info("morning digest sent"))
+      .catch((err: unknown) =>
+        log.error(
+          `digest failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  });
+  log.info(`digest cron scheduled (${expression})`);
 }
 
 /**
