@@ -118,6 +118,12 @@ export interface CalendarEvent {
   kind: string;
 }
 
+export interface TrendPoint {
+  weekStart: string;
+  activeTotal: number;
+  totalJobs: number;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
@@ -125,6 +131,7 @@ export interface Stats {
   aging: AgingItem[];
   funnel: FunnelStage[];
   events: CalendarEvent[];
+  trend: TrendPoint[];
   newLeads: number;
 }
 

@@ -24,6 +24,10 @@ export async function startBackupCron(): Promise<void> {
   }
   globalThis.__backupCronStarted = true;
   cron.schedule(expression, () => {
+    // weekly snapshot piggybacks on the nightly tick (idempotent per week)
+    import("@/server/snapshots")
+      .then(({ ensureWeeklySnapshot }) => ensureWeeklySnapshot(getDb()))
+      .catch(() => undefined);
     import("@/server/backup")
       .then(({ runBackup }) => runBackup(getDb()))
       .then((dest) => log.info(`nightly backup written: ${dest}`))

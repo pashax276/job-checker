@@ -22,7 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useJobs, useUpdateJob } from "@/hooks/use-jobs";
+import { useJobs, useStats, useUpdateJob } from "@/hooks/use-jobs";
 import { composeComp } from "@/lib/comp";
 import { STATUSES, type Status } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
@@ -41,18 +41,34 @@ const STATUS_TOP: Record<Status, string> = {
   Rejected: "border-t-status-rejected",
 };
 
+// Spec nice-to-have: WIP-style aging warnings, amber past the threshold.
+const WIP_THRESHOLDS: Partial<Record<Status, number>> = {
+  Evaluating: 21,
+  Applied: 14,
+  Screen: 10,
+  Assessment: 10,
+  "HM Interview": 10,
+  Panel: 10,
+  Offer: 7,
+};
+
 function JobCard({
   job,
   onOpen,
   dragging,
   compact,
+  agingDays,
 }: {
   job: Job;
   onOpen?: (id: string) => void;
   dragging?: boolean;
   compact?: boolean;
+  agingDays?: number;
 }) {
   const due = isFollowUpDue(job.followUpDate, new Date());
+  const threshold = WIP_THRESHOLDS[job.status];
+  const stale =
+    agingDays !== undefined && threshold !== undefined && agingDays >= threshold;
   if (compact) {
     return (
       <button
@@ -90,6 +106,14 @@ function JobCard({
       <span className="mt-1.5 flex items-center gap-1.5">
         <TierBadge tier={job.priorityTier} />
         {due ? <DueBadge /> : null}
+        {stale ? (
+          <span
+            title={`${agingDays} days in ${job.status}`}
+            className="font-data inline-flex items-center rounded-sm border border-status-assessment/40 bg-status-assessment/10 px-1 text-[10px] text-status-assessment"
+          >
+            {agingDays}d
+          </span>
+        ) : null}
         {composeComp(job) ? (
           <span className="font-data min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground">
             {composeComp(job)}
@@ -104,10 +128,12 @@ function DraggableCard({
   job,
   onOpen,
   compact,
+  agingDays,
 }: {
   job: Job;
   onOpen: (id: string) => void;
   compact?: boolean;
+  agingDays?: number;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
@@ -119,7 +145,7 @@ function DraggableCard({
       {...listeners}
       className={cn(isDragging && "opacity-30")}
     >
-      <JobCard job={job} onOpen={onOpen} compact={compact} />
+      <JobCard job={job} onOpen={onOpen} compact={compact} agingDays={agingDays} />
     </li>
   );
 }
@@ -129,11 +155,13 @@ function Column({
   jobs,
   onOpen,
   compact,
+  agingById,
 }: {
   status: Status;
   jobs: Job[];
   onOpen: (id: string) => void;
   compact?: boolean;
+  agingById?: Map<string, number>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
@@ -159,7 +187,13 @@ function Column({
         )}
       >
         {jobs.map((job) => (
-          <DraggableCard key={job.id} job={job} onOpen={onOpen} compact={compact} />
+          <DraggableCard
+            key={job.id}
+            job={job}
+            onOpen={onOpen}
+            compact={compact}
+            agingDays={agingById?.get(job.id)}
+          />
         ))}
       </ul>
     </section>
@@ -182,7 +216,11 @@ function loadHiddenColumns(): Set<Status> {
 
 export default function BoardPage() {
   const { data: jobs, isLoading } = useJobs();
+  const { data: stats } = useStats();
   const updateJob = useUpdateJob();
+  const agingById = new Map(
+    (stats?.aging ?? []).map((a) => [a.id, a.daysInCurrentStage]),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Set<Status>>(loadHiddenColumns);
@@ -288,6 +326,7 @@ export default function BoardPage() {
               jobs={byStatus.get(status) ?? []}
               onOpen={setSelectedId}
               compact={compact}
+              agingById={agingById}
             />
           ))}
         </div>

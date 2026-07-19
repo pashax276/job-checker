@@ -22,6 +22,9 @@ export async function register(): Promise<void> {
   if (watch.imported > 0) {
     log.info(`first run: seeded ${watch.imported} watchlist companies`);
   }
+  const { ensureWeeklySnapshot } = await import("@/server/snapshots");
+  ensureWeeklySnapshot(getDb());
+
   await startDiscoveryCron();
   await startBackupCron();
 }

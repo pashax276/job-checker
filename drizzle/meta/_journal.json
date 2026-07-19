@@ -43,6 +43,13 @@
       "when": 1784484210508,
       "tag": "0005_skill-match-prep-notes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784484470537,
+      "tag": "0006_snapshots",
+      "breakpoints": true
     }
   ]
 }

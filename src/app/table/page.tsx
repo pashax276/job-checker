@@ -10,7 +10,16 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink, Columns } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Bookmark,
+  Columns,
+  ExternalLink,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
@@ -22,6 +31,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
@@ -47,6 +58,26 @@ import { isFollowUpDue } from "@/lib/dates";
 import type { Job } from "@/lib/types";
 
 const ALL = "__all__";
+const SAVED_VIEWS_KEY = "table-saved-views";
+
+interface SavedView {
+  name: string;
+  status?: Status;
+  tier?: Tier;
+  dueOnly: boolean;
+  sorting: SortingState;
+  columnVisibility: VisibilityState;
+}
+
+function loadSavedViews(): SavedView[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SAVED_VIEWS_KEY);
+    return raw ? (JSON.parse(raw) as SavedView[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 // Stable fallback for loading states. An inline `jobs ?? []` hands TanStack a
 // new array identity every render, and any filter change (query-key swap ->
@@ -102,6 +133,37 @@ function TableView() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [savedViews, setSavedViews] = useState<SavedView[]>(loadSavedViews);
+
+  const persistViews = (views: SavedView[]) => {
+    setSavedViews(views);
+    window.localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+  };
+
+  const saveCurrentView = () => {
+    const name = window.prompt("Name this view:", "");
+    if (!name?.trim()) return;
+    const view: SavedView = {
+      name: name.trim(),
+      status,
+      tier,
+      dueOnly,
+      sorting,
+      columnVisibility,
+    };
+    persistViews([
+      ...savedViews.filter((v) => v.name !== view.name),
+      view,
+    ]);
+  };
+
+  const applyView = (view: SavedView) => {
+    setStatus(view.status);
+    setTier(view.tier);
+    setDueOnly(view.dueOnly);
+    setSorting(view.sorting);
+    setColumnVisibility(view.columnVisibility);
+  };
 
   const { data: jobs, isLoading } = useJobs({ status, tier, q, dueOnly });
   const updateJob = useUpdateJob();
@@ -345,6 +407,43 @@ function TableView() {
         <span className="font-data text-xs text-muted-foreground">
           {table.getRowModel().rows.length} jobs
         </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" />
+            }
+          >
+            <Bookmark className="size-3.5" aria-hidden />
+            Views
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {savedViews.map((view) => (
+              <DropdownMenuItem
+                key={view.name}
+                className="flex items-center gap-2 text-xs"
+                onClick={() => applyView(view)}
+              >
+                <span className="flex-1">{view.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Delete view ${view.name}`}
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    persistViews(savedViews.filter((v) => v.name !== view.name));
+                  }}
+                >
+                  <Trash2 className="size-3" aria-hidden />
+                </button>
+              </DropdownMenuItem>
+            ))}
+            {savedViews.length > 0 ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem className="text-xs" onClick={saveCurrentView}>
+              <Plus className="size-3.5" aria-hidden />
+              Save current view…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={

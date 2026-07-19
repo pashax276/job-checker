@@ -8,6 +8,7 @@ import {
   type Status,
 } from "@/lib/constants";
 import { daysInCurrentStage, toLocalIsoDate } from "@/lib/dates";
+import { listSnapshots } from "@/server/snapshots";
 
 export interface OverdueItem {
   id: string;
@@ -41,6 +42,12 @@ export interface CalendarEvent {
   kind: string;
 }
 
+export interface TrendPoint {
+  weekStart: string;
+  activeTotal: number;
+  totalJobs: number;
+}
+
 export interface Stats {
   statusCounts: Record<Status, number>;
   activeTotal: number;
@@ -48,6 +55,7 @@ export interface Stats {
   aging: AgingItem[];
   funnel: FunnelStage[];
   events: CalendarEvent[];
+  trend: TrendPoint[];
   newLeads: number;
 }
 
@@ -227,9 +235,24 @@ export function getStats(db: DB, today = new Date()): Stats {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 200);
 
+  const trend: TrendPoint[] = listSnapshots(db).map((row) => ({
+    weekStart: row.weekStart,
+    activeTotal: row.activeTotal,
+    totalJobs: row.totalJobs,
+  }));
+
   const newLeads =
     db.select({ n: count() }).from(leads).where(eq(leads.status, "new")).get()
       ?.n ?? 0;
 
-  return { statusCounts, activeTotal, overdue, aging, funnel, events, newLeads };
+  return {
+    statusCounts,
+    activeTotal,
+    overdue,
+    aging,
+    funnel,
+    events,
+    trend,
+    newLeads,
+  };
 }

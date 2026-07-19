@@ -7,6 +7,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -24,7 +26,7 @@ import {
   PIPELINE_FLOW,
   type Status,
 } from "@/lib/constants";
-import { isFollowUpDue } from "@/lib/dates";
+import { daysSinceApplied, isFollowUpDue } from "@/lib/dates";
 import type { Job } from "@/lib/types";
 
 const STATUS_VAR: Record<Status, string> = {
@@ -182,6 +184,64 @@ export default function DashboardPage() {
           sub="in the discovery inbox"
         />
       </div>
+
+      {/* Offer comparison — appears once offers exist */}
+      {offers.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              Offer comparison
+              {offers.length < 2 ? (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  one offer so far — comparison lights up with a second
+                </span>
+              ) : null}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="text-xs text-muted-foreground [&>th]:pb-1.5 [&>th]:font-medium">
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>Base</th>
+                  <th>Bonus</th>
+                  <th>Equity</th>
+                  <th>Notes</th>
+                  <th>Resume</th>
+                  <th className="text-right">Days in process</th>
+                </tr>
+              </thead>
+              <tbody>
+                {offers.map((job) => (
+                  <tr
+                    key={job.id}
+                    onClick={() => setSelectedId(job.id)}
+                    className="cursor-pointer border-t transition-colors hover:bg-accent/50 [&>td]:py-1.5 [&>td]:pr-2"
+                  >
+                    <td className="font-medium">{job.company}</td>
+                    <td className="max-w-48 truncate text-muted-foreground">
+                      {job.role}
+                    </td>
+                    <td className="font-data text-xs">{job.compBase ?? "—"}</td>
+                    <td className="font-data text-xs">{job.compBonus ?? "—"}</td>
+                    <td className="font-data text-xs">{job.compEquity ?? "—"}</td>
+                    <td className="max-w-40 truncate text-xs text-muted-foreground">
+                      {job.compNotes ?? "—"}
+                    </td>
+                    <td className="font-data text-xs">
+                      {job.resumeVersion ?? "—"}
+                    </td>
+                    <td className="font-data text-right text-xs">
+                      {daysSinceApplied(job.dateApplied, today) ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1">
         {/* Left 2/3: active pipeline + closed recently */}
@@ -477,6 +537,75 @@ export default function DashboardPage() {
                     </button>
                   );
                 })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Momentum
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  weekly snapshots
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stats.trend.length < 2 ? (
+                <p className="text-xs text-muted-foreground">
+                  Collecting one snapshot per week
+                  {stats.trend.length === 1
+                    ? ` — first: ${stats.trend[0].activeTotal} active / ${stats.trend[0].totalJobs} total`
+                    : ""}
+                  . Trends appear from week two.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={120}>
+                  <LineChart
+                    data={stats.trend}
+                    margin={{ top: 4, right: 8, bottom: 0, left: -22 }}
+                  >
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" />
+                    <XAxis
+                      dataKey="weekStart"
+                      tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
+                      tickFormatter={(v: string) => v.slice(5).replace("-", "/")}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={40}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        color: "var(--popover-foreground)",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="activeTotal"
+                      name="active"
+                      stroke="var(--chart-1)"
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="totalJobs"
+                      name="total"
+                      stroke="var(--chart-5)"
+                      strokeWidth={1.5}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               )}
             </CardContent>
           </Card>

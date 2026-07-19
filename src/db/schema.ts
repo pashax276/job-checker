@@ -119,6 +119,16 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
 });
 
+// One pipeline snapshot per ISO week — the momentum trend's data source.
+export const snapshots = sqliteTable("snapshots", {
+  id: text("id").primaryKey(),
+  weekStart: text("week_start").notNull().unique(), // Monday, YYYY-MM-DD
+  takenAt: text("taken_at").notNull(),
+  activeTotal: integer("active_total").notNull(),
+  totalJobs: integer("total_jobs").notNull(),
+  statusCounts: text("status_counts").notNull(), // JSON Record<Status, number>
+});
+
 export type JobRecord = typeof jobs.$inferSelect;
 export type StatusHistoryRecord = typeof statusHistory.$inferSelect;
 export type ContactRecord = typeof contacts.$inferSelect;
