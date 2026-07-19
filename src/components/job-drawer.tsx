@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -45,10 +44,12 @@ import {
   type JobFormValues,
 } from "@/lib/job-form";
 import { jobPatchSchema } from "@/lib/schemas";
+import { SCHEDULABLE_STAGES } from "@/lib/constants";
 import type {
   ActivityEntry,
   Contact,
   JobDetail,
+  StageScheduleEntry,
   StatusHistoryEntry,
 } from "@/lib/types";
 
@@ -168,6 +169,55 @@ function ContactsSection({
           Add
         </Button>
       </form>
+    </div>
+  );
+}
+
+function ScheduleSection({
+  jobId,
+  schedule,
+}: {
+  jobId: string;
+  schedule: StageScheduleEntry[];
+}) {
+  const { setSchedule, clearSchedule } = useJobExtras(jobId);
+  const byStage = new Map(schedule.map((s) => [s.stage, s.scheduledFor]));
+
+  return (
+    <div className="space-y-1">
+      {SCHEDULABLE_STAGES.map((stage) => {
+        const booked = byStage.get(stage) ?? "";
+        return (
+          <div key={stage} className="flex items-center gap-2">
+            <span className="w-28 shrink-0">
+              <StatusBadge status={stage} />
+            </span>
+            <Input
+              type="date"
+              aria-label={`${stage} date`}
+              className="h-7 flex-1 text-xs"
+              value={booked}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v) setSchedule.mutate({ stage, scheduledFor: v });
+                else if (booked) clearSchedule.mutate(stage);
+              }}
+            />
+            {booked ? (
+              <button
+                type="button"
+                aria-label={`Clear ${stage} date`}
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => clearSchedule.mutate(stage)}
+              >
+                <Trash2 className="size-3" aria-hidden />
+              </button>
+            ) : (
+              <span className="w-3" aria-hidden />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -327,7 +377,7 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
 
   return (
     <Sheet open={jobId !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-lg">
+      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto data-[side=right]:sm:max-w-xl data-[side=right]:lg:max-w-4xl">
         {job && draft ? (
           <>
             <SheetHeader className="space-y-2 pb-2">
@@ -360,8 +410,9 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
               </SheetDescription>
             </SheetHeader>
 
+            <div className="grid lg:grid-cols-[5fr_4fr]">
             <div
-              className="space-y-3 px-4 pb-4"
+              className="space-y-3 px-4 pb-4 lg:border-r"
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                   e.preventDefault();
@@ -429,28 +480,38 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
               </div>
             </div>
 
-            <Separator />
-            <div className="space-y-2 p-4 pb-0">
-              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Journey
-              </h3>
-              <StageJourney
-                history={job.statusHistory}
-                currentStatus={job.status}
-              />
+            <div className="border-t lg:border-t-0">
+              <div className="space-y-2 p-4 pb-0">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Journey
+                </h3>
+                <StageJourney
+                  history={job.statusHistory}
+                  currentStatus={job.status}
+                  schedule={Object.fromEntries(
+                    job.schedule.map((s) => [s.stage, s.scheduledFor]),
+                  )}
+                />
+              </div>
+              <div className="space-y-2 p-4 pb-0">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Scheduled steps
+                </h3>
+                <ScheduleSection jobId={job.id} schedule={job.schedule} />
+              </div>
+              <div className="space-y-2 p-4 pb-0">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Contacts
+                </h3>
+                <ContactsSection jobId={job.id} contacts={job.contacts} />
+              </div>
+              <div className="space-y-2 p-4">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Timeline
+                </h3>
+                <Timeline job={job} />
+              </div>
             </div>
-            <div className="space-y-2 p-4 pb-0">
-              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Contacts
-              </h3>
-              <ContactsSection jobId={job.id} contacts={job.contacts} />
-            </div>
-
-            <div className="space-y-2 p-4">
-              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Timeline
-              </h3>
-              <Timeline job={job} />
             </div>
           </>
         ) : (

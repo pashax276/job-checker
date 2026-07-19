@@ -152,8 +152,33 @@ export function useJobExtras(jobId: string | null) {
     onSuccess: refresh,
     onError,
   });
+  const setSchedule = useMutation({
+    mutationFn: (input: { stage: string; scheduledFor: string }) =>
+      api(`/api/jobs/${jobId}/schedule`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+  const clearSchedule = useMutation({
+    mutationFn: (stage: string) =>
+      api(`/api/jobs/${jobId}/schedule?stage=${encodeURIComponent(stage)}`, {
+        method: "DELETE",
+      }),
+    onSuccess: refresh,
+    onError,
+  });
 
-  return { addContact, touchContact, removeContact, addActivity, removeActivity };
+  return {
+    addContact,
+    touchContact,
+    removeContact,
+    addActivity,
+    removeActivity,
+    setSchedule,
+    clearSchedule,
+  };
 }
 
 export function useDeleteJob() {

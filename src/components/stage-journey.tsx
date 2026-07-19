@@ -35,6 +35,8 @@ const SHORT_LABEL: Record<Status, string> = {
 interface StageJourneyProps {
   history: StatusHistoryEntry[];
   currentStatus: Status;
+  /** Booked dates per stage (from stage_schedule), shown under the steps. */
+  schedule?: Partial<Record<Status, string>>;
 }
 
 /** Days between two stamps (ISO datetime or date-only). */
@@ -47,7 +49,11 @@ function daysBetween(fromStamp: string, toStamp: string): number {
  * stage pops in sequence (a "timelapse" of the process so far); terminal
  * Skipped/Rejected renders as an end chip instead of forward progress.
  */
-export function StageJourney({ history, currentStatus }: StageJourneyProps) {
+export function StageJourney({
+  history,
+  currentStatus,
+  schedule = {},
+}: StageJourneyProps) {
   // First time each status was entered, in pipeline order of appearance.
   const enteredAt = new Map<Status, string>();
   for (const entry of history) {
@@ -145,6 +151,10 @@ export function StageJourney({ history, currentStatus }: StageJourneyProps) {
               {active && days !== null ? (
                 <span className="font-data w-full truncate text-[10px] text-muted-foreground">
                   {days}d
+                </span>
+              ) : schedule[status] ? (
+                <span className="font-data w-full truncate text-[10px] text-primary">
+                  {schedule[status]!.slice(5).replace("-", "/")}
                 </span>
               ) : null}
             </li>

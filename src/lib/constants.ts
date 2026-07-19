@@ -47,6 +47,16 @@ export const LOOP_STATUSES: readonly Status[] = [
   "Panel",
 ];
 
+// Steps that can be booked to a calendar date.
+export const SCHEDULABLE_STAGES = [
+  "Screen",
+  "Assessment",
+  "HM Interview",
+  "Panel",
+  "Offer",
+] as const;
+export type SchedulableStage = (typeof SCHEDULABLE_STAGES)[number];
+
 // Column order of the original Excel tracker. Export must emit exactly this
 // order; import accepts files with these headers.
 export const TRACKER_COLUMNS = [

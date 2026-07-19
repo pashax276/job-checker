@@ -1,6 +1,10 @@
 import { getDb } from "@/db/client";
 import { apiError, apiOk, apiZodError } from "@/lib/api-response";
-import { settingsPutSchema } from "@/lib/discovery-schemas";
+import {
+  DEFAULT_ALERT_QUERIES,
+  settingsPutSchema,
+  type AlertQuery,
+} from "@/lib/discovery-schemas";
 import type { DiscoveryResult } from "@/server/discovery/run";
 import { getSetting, setSetting } from "@/server/settings";
 
@@ -11,6 +15,8 @@ export async function GET(): Promise<Response> {
   return apiOk({
     rssFeeds: getSetting<string[]>(db, "rssFeeds") ?? [],
     profileBlurb: getSetting<string>(db, "profileBlurb") ?? "",
+    alertQueries:
+      getSetting<AlertQuery[]>(db, "alertQueries") ?? DEFAULT_ALERT_QUERIES,
     lastDiscoveryRun: getSetting<DiscoveryResult>(db, "lastDiscoveryRun"),
   });
 }
@@ -30,6 +36,9 @@ export async function PUT(request: Request): Promise<Response> {
   }
   if (parsed.data.profileBlurb !== undefined) {
     setSetting(db, "profileBlurb", parsed.data.profileBlurb);
+  }
+  if (parsed.data.alertQueries !== undefined) {
+    setSetting(db, "alertQueries", parsed.data.alertQueries);
   }
   return apiOk({ saved: true });
 }

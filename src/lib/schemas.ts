@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { DEFAULT_STATUS, DEFAULT_TIER, STATUSES, TIERS } from "@/lib/constants";
+import {
+  DEFAULT_STATUS,
+  DEFAULT_TIER,
+  SCHEDULABLE_STAGES,
+  STATUSES,
+  TIERS,
+} from "@/lib/constants";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -70,6 +76,15 @@ export const contactPatchSchema = z.strictObject({
 
 export const activityCreateSchema = z.strictObject({
   note: z.string().trim().min(1, "Note is required"),
+});
+
+export const scheduleSetSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
+  scheduledFor: z.string().regex(ISO_DATE_RE, "Expected YYYY-MM-DD"),
+});
+
+export const scheduleClearSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
 });
 
 export const listQuerySchema = z.object({

@@ -88,6 +88,39 @@ describe("contacts", () => {
   });
 });
 
+describe("stage schedule", () => {
+  it("books a date for a stage and upserts on re-book", async () => {
+    const { upsertStageSchedule } = await import("@/server/schedule");
+    upsertStageSchedule(db, jobId, "Screen", "2026-07-22");
+    upsertStageSchedule(db, jobId, "Panel", "2026-07-30");
+    upsertStageSchedule(db, jobId, "Screen", "2026-07-24"); // rescheduled
+    const detail = getJob(db, jobId);
+    expect(detail?.schedule).toHaveLength(2);
+    const screen = detail?.schedule.find((s) => s.stage === "Screen");
+    expect(screen?.scheduledFor).toBe("2026-07-24");
+  });
+
+  it("removes a booked stage", async () => {
+    const { removeStageSchedule, upsertStageSchedule } = await import(
+      "@/server/schedule"
+    );
+    upsertStageSchedule(db, jobId, "Screen", "2026-07-22");
+    expect(removeStageSchedule(db, jobId, "Screen")).toBe(true);
+    expect(removeStageSchedule(db, jobId, "Screen")).toBe(false);
+    expect(getJob(db, jobId)?.schedule).toHaveLength(0);
+  });
+
+  it("cascades with the job", async () => {
+    const { upsertStageSchedule } = await import("@/server/schedule");
+    upsertStageSchedule(db, jobId, "Panel", "2026-07-30");
+    deleteJob(db, jobId);
+    const rows = db.$client
+      .prepare("SELECT COUNT(*) AS n FROM stage_schedule")
+      .get() as { n: number };
+    expect(rows.n).toBe(0);
+  });
+});
+
 describe("activity log", () => {
   it("adds entries newest-first and deletes them", () => {
     addActivity(

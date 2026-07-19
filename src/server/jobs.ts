@@ -7,17 +7,20 @@ import {
   type ActivityRecord,
   type ContactRecord,
   type JobRecord,
+  type StageScheduleRecord,
   type StatusHistoryRecord,
 } from "@/db/schema";
 import { toLocalIsoDate } from "@/lib/dates";
 import type { JobCreate, JobPatch, ListQuery } from "@/lib/schemas";
 import { listActivity } from "@/server/activity";
 import { listContacts } from "@/server/contacts";
+import { listSchedule } from "@/server/schedule";
 
 export type JobDetail = JobRecord & {
   statusHistory: StatusHistoryRecord[];
   contacts: ContactRecord[];
   activityLog: ActivityRecord[];
+  schedule: StageScheduleRecord[];
 };
 
 export function createJob(db: DB, input: JobCreate, now = new Date()): JobRecord {
@@ -68,6 +71,7 @@ export function getJob(db: DB, id: string): JobDetail | null {
     statusHistory: history,
     contacts: listContacts(db, id),
     activityLog: listActivity(db, id),
+    schedule: listSchedule(db, id),
   };
 }
 

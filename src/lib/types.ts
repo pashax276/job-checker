@@ -54,10 +54,18 @@ export interface StatusHistoryEntry {
   changedAt: string;
 }
 
+export interface StageScheduleEntry {
+  id: string;
+  jobId: string;
+  stage: Status;
+  scheduledFor: string;
+}
+
 export interface JobDetail extends Job {
   statusHistory: StatusHistoryEntry[];
   contacts: Contact[];
   activityLog: ActivityEntry[];
+  schedule: StageScheduleEntry[];
 }
 
 export interface OverdueItem {

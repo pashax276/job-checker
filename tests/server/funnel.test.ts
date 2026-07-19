@@ -54,6 +54,32 @@ describe("stats funnel", () => {
     expect(funnelOf().Applied).toBe(1);
   });
 
+  it("moving a job backward drops the higher stage (correction, not regression)", () => {
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "MovedBack", role: "R", status: "Applied" }),
+    );
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Screen" }));
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Panel" }));
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "HM Interview" }));
+    const reached = funnelOf();
+    expect(reached["HM Interview"]).toBe(1);
+    expect(reached.Panel).toBe(0); // corrected away — the job is not past Panel
+    expect(reached.Screen).toBe(1); // implied by current position
+  });
+
+  it("terminal jobs still credit the stage they closed from", () => {
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "RejectedLate", role: "R", status: "Applied" }),
+    );
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Screen" }));
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Panel" }));
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Rejected" }));
+    const reached = funnelOf();
+    expect(reached.Panel).toBe(1); // real drop-off after Panel is preserved
+  });
+
   it("counts the current pipeline stage as reached", () => {
     createJob(
       db,

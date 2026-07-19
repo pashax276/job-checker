@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play, Plus, Trash2 } from "lucide-react";
+import { Copy, Play, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,15 @@ interface SourceCounts {
   created: number;
 }
 
+interface AlertQuery {
+  label: string;
+  query: string;
+}
+
 interface SettingsData {
   rssFeeds: string[];
   profileBlurb: string;
+  alertQueries: AlertQuery[];
   lastDiscoveryRun: {
     startedAt: string;
     atsPoll: SourceCounts;
@@ -71,6 +77,7 @@ export default function SettingsPage() {
   });
   const [feedsDraft, setFeedsDraft] = useState<string | null>(null);
   const [blurbDraft, setBlurbDraft] = useState<string | null>(null);
+  const [queriesDraft, setQueriesDraft] = useState<AlertQuery[] | null>(null);
 
   const addEntry = useMutation({
     mutationFn: () =>
@@ -103,7 +110,11 @@ export default function SettingsPage() {
   });
 
   const saveSettings = useMutation({
-    mutationFn: (payload: { rssFeeds?: string[]; profileBlurb?: string }) =>
+    mutationFn: (payload: {
+      rssFeeds?: string[];
+      profileBlurb?: string;
+      alertQueries?: AlertQuery[];
+    }) =>
       api<unknown>("/api/settings", {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -288,6 +299,110 @@ export default function SettingsPage() {
             no stable public posting API — cover those with Google Alerts feeds
             below.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Google Alerts queries</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            The app never runs these against Google — they are the recipes for
+            your Google Alerts. Create/update each Alert with “Deliver to: RSS
+            feed”, then paste the feed URLs into the next card. Edit them here
+            when your search terms change.
+          </p>
+          {(queriesDraft ?? settings?.alertQueries ?? []).map((entry, i) => (
+            <div key={i} className="space-y-1 rounded-md border p-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  aria-label="Query label"
+                  className="h-7 w-40 text-xs"
+                  value={entry.label}
+                  onChange={(e) =>
+                    setQueriesDraft((d) => {
+                      const base = d ?? settings?.alertQueries ?? [];
+                      return base.map((q, j) =>
+                        j === i ? { ...q, label: e.target.value } : q,
+                      );
+                    })
+                  }
+                />
+                <div className="flex-1" />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(entry.query);
+                    toast.success(`${entry.label} query copied`);
+                  }}
+                >
+                  <Copy className="size-3" aria-hidden />
+                  Copy
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-destructive hover:text-destructive"
+                  aria-label={`Remove ${entry.label} query`}
+                  onClick={() =>
+                    setQueriesDraft((d) =>
+                      (d ?? settings?.alertQueries ?? []).filter((_, j) => j !== i),
+                    )
+                  }
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                </Button>
+              </div>
+              <Textarea
+                aria-label={`${entry.label} query`}
+                rows={2}
+                className="font-data text-xs"
+                value={entry.query}
+                onChange={(e) =>
+                  setQueriesDraft((d) => {
+                    const base = d ?? settings?.alertQueries ?? [];
+                    return base.map((q, j) =>
+                      j === i ? { ...q, query: e.target.value } : q,
+                    );
+                  })
+                }
+              />
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs"
+              onClick={() =>
+                setQueriesDraft((d) => [
+                  ...(d ?? settings?.alertQueries ?? []),
+                  { label: "New query", query: "" },
+                ])
+              }
+            >
+              <Plus className="size-3.5" aria-hidden />
+              Add query
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={saveSettings.isPending || queriesDraft === null}
+              onClick={() =>
+                queriesDraft &&
+                saveSettings.mutate({
+                  alertQueries: queriesDraft.filter(
+                    (q) => q.label.trim() && q.query.trim(),
+                  ),
+                })
+              }
+            >
+              Save queries
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

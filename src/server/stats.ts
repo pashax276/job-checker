@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNotNull, lte, not, notInArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, lte, not, notInArray, sql } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { jobs, leads, statusHistory } from "@/db/schema";
 import {
@@ -136,9 +136,11 @@ export function getStats(db: DB, today = new Date()): Stats {
     }))
     .sort((a, b) => b.daysInCurrentStage - a.daysInCurrentStage);
 
-  // Conversion funnel: how far did each job ever get? Furthest stage =
-  // max of (Evaluating for everyone, Applied when dateApplied exists, every
-  // pipeline stage seen in history, the current stage if still in the flow).
+  // Conversion funnel keyed to where each job stands NOW: the last pipeline
+  // stage it occupied (implying passage through earlier stages), so moving a
+  // card backward corrects the funnel rather than recording a phantom stage.
+  // Terminal jobs credit the stage they closed from — that is the drop-off
+  // signal. dateApplied implies at least Applied for history-less imports.
   const allJobs = db
     .select({
       id: jobs.id,
@@ -150,24 +152,27 @@ export function getStats(db: DB, today = new Date()): Stats {
   const historyStages = db
     .select({ jobId: statusHistory.jobId, toStatus: statusHistory.toStatus })
     .from(statusHistory)
+    .orderBy(asc(statusHistory.changedAt))
     .all();
-  const stagesByJob = new Map<string, string[]>();
-  for (const row of historyStages) {
-    stagesByJob.set(row.jobId, [
-      ...(stagesByJob.get(row.jobId) ?? []),
-      row.toStatus,
-    ]);
-  }
   const flowIndex = new Map(PIPELINE_FLOW.map((s, i) => [s as string, i]));
+  // Chronological scan: the map ends up holding each job's LAST in-flow stage.
+  const lastFlowStage = new Map<string, number>();
+  for (const row of historyStages) {
+    const idx = flowIndex.get(row.toStatus);
+    if (idx !== undefined) lastFlowStage.set(row.jobId, idx);
+  }
   const appliedIndex = flowIndex.get("Applied")!;
   const reachedIndexOf = (job: (typeof allJobs)[number]): number => {
     const candidates = [0];
     if (job.dateApplied) candidates.push(appliedIndex);
     const current = flowIndex.get(job.status);
-    if (current !== undefined) candidates.push(current);
-    for (const stage of stagesByJob.get(job.id) ?? []) {
-      const idx = flowIndex.get(stage);
-      if (idx !== undefined) candidates.push(idx);
+    if (current !== undefined) {
+      // Active in the flow: current position is the truth.
+      candidates.push(current);
+    } else {
+      // Skipped/Rejected: the last stage held before closing.
+      const last = lastFlowStage.get(job.id);
+      if (last !== undefined) candidates.push(last);
     }
     return Math.max(...candidates);
   };

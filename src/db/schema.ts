@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 export const jobs = sqliteTable("jobs", {
   id: text("id").primaryKey(),
@@ -30,6 +30,20 @@ export const contacts = sqliteTable("contacts", {
   lastTouch: text("last_touch"),
   createdAt: text("created_at").notNull(),
 });
+
+// When an upcoming step (screen/HM/panel/…) is booked: one date per stage.
+export const stageSchedule = sqliteTable(
+  "stage_schedule",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    stage: text("stage").notNull(),
+    scheduledFor: text("scheduled_for").notNull(),
+  },
+  (t) => [unique().on(t.jobId, t.stage)],
+);
 
 // Free-text activity log per job, merged with status history in the drawer.
 export const activity = sqliteTable("activity", {
@@ -81,5 +95,6 @@ export type JobRecord = typeof jobs.$inferSelect;
 export type StatusHistoryRecord = typeof statusHistory.$inferSelect;
 export type ContactRecord = typeof contacts.$inferSelect;
 export type ActivityRecord = typeof activity.$inferSelect;
+export type StageScheduleRecord = typeof stageSchedule.$inferSelect;
 export type WatchlistRecord = typeof watchlist.$inferSelect;
 export type LeadRecord = typeof leads.$inferSelect;
