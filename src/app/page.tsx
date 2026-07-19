@@ -22,6 +22,7 @@ const STATUS_DOT: Record<Status, string> = {
   Applied: "var(--status-applied)",
   Screen: "var(--status-screen)",
   Assessment: "var(--status-assessment)",
+  "HM Interview": "var(--status-hm-interview)",
   Panel: "var(--status-panel)",
   Offer: "var(--status-offer)",
   Skipped: "var(--status-skipped)",

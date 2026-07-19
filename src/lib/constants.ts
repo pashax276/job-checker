@@ -3,6 +3,7 @@ export const STATUSES = [
   "Applied",
   "Screen",
   "Assessment",
+  "HM Interview",
   "Panel",
   "Offer",
   "Skipped",

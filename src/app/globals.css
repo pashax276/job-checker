@@ -60,6 +60,7 @@
   --color-status-applied: var(--status-applied);
   --color-status-screen: var(--status-screen);
   --color-status-assessment: var(--status-assessment);
+  --color-status-hm-interview: var(--status-hm-interview);
   --color-status-panel: var(--status-panel);
   --color-status-offer: var(--status-offer);
   --color-status-skipped: var(--status-skipped);
@@ -114,6 +115,7 @@
   --status-applied: #2f6fbf;
   --status-screen: #2e8c7d;
   --status-assessment: #a87b24;
+  --status-hm-interview: #a34e6e;
   --status-panel: #8a4fa8;
   --status-offer: #3d8c41;
   --status-skipped: #6b7280;
@@ -167,6 +169,7 @@
   --status-applied: #58a6ff;
   --status-screen: #45b3a2;
   --status-assessment: #e0b45c;
+  --status-hm-interview: #d98ba6;
   --status-panel: #c588dc;
   --status-offer: #57ab5a;
   --status-skipped: #6e7681;

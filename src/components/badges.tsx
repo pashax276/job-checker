@@ -15,6 +15,7 @@ const STATUS_DOT_CLASSES: Record<Status, string> = {
   Applied: "bg-status-applied",
   Screen: "bg-status-screen",
   Assessment: "bg-status-assessment",
+  "HM Interview": "bg-status-hm-interview",
   Panel: "bg-status-panel",
   Offer: "bg-status-offer",
   Skipped: "bg-status-skipped",

@@ -42,7 +42,7 @@ describe("jobCreateSchema", () => {
   it("accepts every legal status and tier", () => {
     const statuses = [
       "Evaluating", "Applied", "Screen", "Assessment",
-      "Panel", "Offer", "Skipped", "Rejected",
+      "HM Interview", "Panel", "Offer", "Skipped", "Rejected",
     ];
     const tiers = ["1 - Top", "2 - High", "3 - Mid", "4 - Queue", "5 - Hold", "Closed"];
     for (const status of statuses) {

@@ -25,6 +25,7 @@ const STATUS_TOP: Record<Status, string> = {
   Applied: "border-t-status-applied",
   Screen: "border-t-status-screen",
   Assessment: "border-t-status-assessment",
+  "HM Interview": "border-t-status-hm-interview",
   Panel: "border-t-status-panel",
   Offer: "border-t-status-offer",
   Skipped: "border-t-status-skipped",
