@@ -20,7 +20,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import { AddJobDialog } from "@/components/add-job-dialog";
+import { CommandPalette } from "@/components/command-palette";
 import { ImportDialog } from "@/components/import-dialog";
+import { JobDrawer } from "@/components/job-drawer";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -55,12 +57,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteJobId, setPaletteJobId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
 
-  // Global shortcuts: "/" focus search, "n" new job, 1–4 switch views.
+  // Global shortcuts: ⌘K palette, "/" focus search, "n" new job, 1–6 views.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+        return;
+      }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isTypingTarget(e.target)) return;
       if (e.key === "/") {
@@ -216,6 +225,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <AddJobDialog open={addOpen} onOpenChange={setAddOpen} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onNewJob={() => setAddOpen(true)}
+        onImport={() => setImportOpen(true)}
+        onOpenJob={setPaletteJobId}
+      />
+      <JobDrawer jobId={paletteJobId} onClose={() => setPaletteJobId(null)} />
     </div>
   );
 }
