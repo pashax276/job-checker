@@ -20,6 +20,7 @@ export interface Job {
   compEquity: string | null;
   resumeId: string | null;
   coverLetterId: string | null;
+  source: "manual" | "import" | "discovery";
   createdAt: string;
   updatedAt: string;
 }

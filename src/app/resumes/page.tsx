@@ -269,7 +269,15 @@ export default function ResumesPage() {
               type="file"
               accept=".pdf,.docx,.txt,.md"
               className="text-xs file:mr-2 file:rounded-md file:border file:bg-transparent file:px-2 file:py-1 file:text-xs"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const picked = e.target.files?.[0] ?? null;
+                setFile(picked);
+                // Auto-derive the version name so Upload is never silently
+                // disabled just because the name field is empty.
+                if (picked && !name.trim()) {
+                  setName(picked.name.replace(/\.[^.]+$/, ""));
+                }
+              }}
             />
             <Button
               type="submit"

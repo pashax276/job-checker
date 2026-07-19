@@ -24,10 +24,18 @@ export type JobDetail = JobRecord & {
   schedule: StageScheduleRecord[];
 };
 
-export function createJob(db: DB, input: JobCreate, now = new Date()): JobRecord {
+export type JobSource = "manual" | "import" | "discovery";
+
+export function createJob(
+  db: DB,
+  input: JobCreate,
+  now = new Date(),
+  source: JobSource = "manual",
+): JobRecord {
   const stamp = now.toISOString();
   const record: JobRecord = {
     id: input.id ?? randomUUID(),
+    source,
     company: input.company,
     role: input.role,
     priorityTier: input.priorityTier,

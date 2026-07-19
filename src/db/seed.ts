@@ -84,6 +84,7 @@ export function seedIfEmpty(
         .values({
           ...jobInput,
           id,
+          source: "import",
           createdAt: created,
           updatedAt: updatedAt ?? created,
         })

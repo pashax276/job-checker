@@ -95,6 +95,7 @@ export function promoteLead(db: DB, id: string, now = new Date()): JobRecord {
       notes: `Promoted from discovery inbox (${lead.source}, ${lead.locationClass})`,
     }),
     now,
+    "discovery",
   );
   db.update(leads).set({ status: "promoted" }).where(eq(leads.id, id)).run();
   return job;

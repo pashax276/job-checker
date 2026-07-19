@@ -1,0 +1,1 @@
+ALTER TABLE `jobs` ADD `source` text DEFAULT 'manual' NOT NULL;

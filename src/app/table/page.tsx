@@ -15,6 +15,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -197,6 +198,35 @@ function TableView() {
             {(getValue() as string | null) ?? "—"}
           </span>
         ),
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Added",
+        cell: ({ row }) => {
+          const job = row.original;
+          const days = Math.floor(
+            (Date.now() - new Date(job.createdAt).getTime()) / 86_400_000,
+          );
+          return (
+            <span className="flex items-center gap-1.5">
+              {days < 7 ? (
+                <span
+                  aria-label="added this week"
+                  title="added this week"
+                  className="size-1.5 shrink-0 rounded-full bg-primary"
+                />
+              ) : null}
+              <span className="font-data text-xs text-muted-foreground">
+                {days === 0 ? "today" : `${days}d`}
+              </span>
+              {job.source !== "manual" ? (
+                <Badge variant="outline" className="font-data px-1 text-[9px]">
+                  {job.source === "discovery" ? "discovered" : "imported"}
+                </Badge>
+              ) : null}
+            </span>
+          );
+        },
       },
       {
         accessorKey: "resumeVersion",

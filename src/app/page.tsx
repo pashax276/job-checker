@@ -91,6 +91,9 @@ export default function DashboardPage() {
 
   const today = new Date();
   const active = jobs.filter(isActive);
+  const addedThisWeek = jobs.filter(
+    (j) => today.getTime() - new Date(j.createdAt).getTime() < 7 * 86_400_000,
+  ).length;
   const inLoops = active.filter((j) => LOOP_STATUSES.includes(j.status));
   const offers = active.filter((j) => j.status === "Offer");
 
@@ -143,7 +146,11 @@ export default function DashboardPage() {
         <SummaryCard
           label="Active pipeline"
           value={stats.activeTotal}
-          sub="tier ≠ Closed, not Skipped/Rejected"
+          sub={
+            addedThisWeek > 0
+              ? `+${addedThisWeek} added this week`
+              : "tier ≠ Closed, not Skipped/Rejected"
+          }
         />
         <SummaryCard
           label="In interview loops"
@@ -246,6 +253,128 @@ export default function DashboardPage() {
               </table>
             </CardContent>
           </Card>
+
+          <div className="grid grid-cols-2 gap-3 max-xl:grid-cols-1">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Conversion funnel
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  furthest stage ever reached
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="pb-1 text-[10px] leading-tight text-muted-foreground">
+                Historical: counts jobs that ever hit a stage, including ones
+                since closed or moved back — board columns show current stages
+                only.
+              </p>
+              {stats.funnel.map((stage) => {
+                const total = stats.funnel[0]?.reached ?? 1;
+                const width = total > 0 ? (stage.reached / total) * 100 : 0;
+                return (
+                  <div key={stage.status} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 truncate text-[11px] text-muted-foreground">
+                      {stage.status}
+                    </span>
+                    <span className="h-3 min-w-0 flex-1 rounded-sm bg-muted">
+                      <span
+                        className="block h-full rounded-sm"
+                        style={{
+                          width: `${width}%`,
+                          background: STATUS_VAR[stage.status],
+                          minWidth: stage.reached > 0 ? 3 : 0,
+                        }}
+                      />
+                    </span>
+                    <span className="font-data w-8 shrink-0 text-right text-xs">
+                      {stage.reached}
+                    </span>
+                    <span className="font-data w-10 shrink-0 text-right text-[10px] text-muted-foreground">
+                      {stage.conversion !== null
+                        ? `${Math.round(stage.conversion * 100)}%`
+                        : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Days in current stage
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  active jobs, longest first
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {agingRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active jobs yet.</p>
+              ) : (
+                <ResponsiveContainer
+                  width="100%"
+                  height={agingRows.length * 24 + 28}
+                >
+                  <BarChart
+                    data={agingRows}
+                    layout="vertical"
+                    margin={{ top: 0, right: 28, bottom: 0, left: 0 }}
+                    barCategoryGap={2}
+                  >
+                    <CartesianGrid
+                      horizontal={false}
+                      stroke="var(--border)"
+                      strokeDasharray="2 4"
+                    />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      unit="d"
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      width={150}
+                      tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "var(--accent)" }}
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        color: "var(--popover-foreground)",
+                      }}
+                      formatter={(value) => [`${String(value)} days`, "in stage"]}
+                      labelFormatter={(label) => String(label)}
+                    />
+                    <Bar
+                      dataKey="daysInCurrentStage"
+                      radius={[0, 4, 4, 0]}
+                      maxBarSize={8}
+                      onClick={(entry) => {
+                        const row = entry as unknown as { id?: string };
+                        if (row.id) setSelectedId(row.id);
+                      }}
+                    >
+                      {agingRows.map((row) => (
+                        <Cell key={row.id} fill="var(--chart-1)" cursor="pointer" />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>          </div>
 
           <Card>
             <CardHeader className="pb-2">
@@ -391,126 +520,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                Conversion funnel
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  furthest stage ever reached
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              <p className="pb-1 text-[10px] leading-tight text-muted-foreground">
-                Historical: counts jobs that ever hit a stage, including ones
-                since closed or moved back — board columns show current stages
-                only.
-              </p>
-              {stats.funnel.map((stage) => {
-                const total = stats.funnel[0]?.reached ?? 1;
-                const width = total > 0 ? (stage.reached / total) * 100 : 0;
-                return (
-                  <div key={stage.status} className="flex items-center gap-2">
-                    <span className="w-24 shrink-0 truncate text-[11px] text-muted-foreground">
-                      {stage.status}
-                    </span>
-                    <span className="h-3 min-w-0 flex-1 rounded-sm bg-muted">
-                      <span
-                        className="block h-full rounded-sm"
-                        style={{
-                          width: `${width}%`,
-                          background: STATUS_VAR[stage.status],
-                          minWidth: stage.reached > 0 ? 3 : 0,
-                        }}
-                      />
-                    </span>
-                    <span className="font-data w-8 shrink-0 text-right text-xs">
-                      {stage.reached}
-                    </span>
-                    <span className="font-data w-10 shrink-0 text-right text-[10px] text-muted-foreground">
-                      {stage.conversion !== null
-                        ? `${Math.round(stage.conversion * 100)}%`
-                        : ""}
-                    </span>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                Days in current stage
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  active jobs, longest first
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {agingRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active jobs yet.</p>
-              ) : (
-                <ResponsiveContainer
-                  width="100%"
-                  height={agingRows.length * 24 + 28}
-                >
-                  <BarChart
-                    data={agingRows}
-                    layout="vertical"
-                    margin={{ top: 0, right: 28, bottom: 0, left: 0 }}
-                    barCategoryGap={2}
-                  >
-                    <CartesianGrid
-                      horizontal={false}
-                      stroke="var(--border)"
-                      strokeDasharray="2 4"
-                    />
-                    <XAxis
-                      type="number"
-                      tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      unit="d"
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="label"
-                      width={150}
-                      tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "var(--accent)" }}
-                      contentStyle={{
-                        background: "var(--popover)",
-                        border: "1px solid var(--border)",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        color: "var(--popover-foreground)",
-                      }}
-                      formatter={(value) => [`${String(value)} days`, "in stage"]}
-                      labelFormatter={(label) => String(label)}
-                    />
-                    <Bar
-                      dataKey="daysInCurrentStage"
-                      radius={[0, 4, 4, 0]}
-                      maxBarSize={8}
-                      onClick={(entry) => {
-                        const row = entry as unknown as { id?: string };
-                        if (row.id) setSelectedId(row.id);
-                      }}
-                    >
-                      {agingRows.map((row) => (
-                        <Cell key={row.id} fill="var(--chart-1)" cursor="pointer" />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
 

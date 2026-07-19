@@ -17,6 +17,7 @@ export const jobs = sqliteTable("jobs", {
   compBase: text("comp_base"),
   compBonus: text("comp_bonus"),
   compEquity: text("comp_equity"),
+  source: text("source").notNull().default("manual"), // manual | import | discovery
   resumeId: text("resume_id").references(() => documents.id, {
     onDelete: "set null",
   }),

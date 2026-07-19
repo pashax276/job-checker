@@ -113,7 +113,7 @@ function commitImport(
       result.updated += 1;
       continue;
     }
-    createJob(db, { ...row.input, id: undefined });
+    createJob(db, { ...row.input, id: undefined }, new Date(), "import");
     result.created += 1;
   }
   return result;

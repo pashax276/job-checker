@@ -100,6 +100,7 @@ describe("lead promotion", () => {
     expect(job.status).toBe("Evaluating");
     expect(job.priorityTier).toBe("3 - Mid");
     expect(job.postingUrl).toBe(lead.url);
+    expect(job.source).toBe("discovery");
     expect(listJobs(db, listQuerySchema.parse({}))).toHaveLength(1);
     const after = listLeads(db, "promoted");
     expect(after.map((l) => l.id)).toContain(lead.id);

@@ -34,6 +34,18 @@ describe("createJob", () => {
     expect(make({ id: "job-001" }).id).toBe("job-001");
   });
 
+  it("records provenance: manual by default, overridable per caller", () => {
+    expect(make().source).toBe("manual");
+    expect(
+      createJob(
+        db,
+        jobCreateSchema.parse({ company: "X", role: "Y" }),
+        new Date(),
+        "discovery",
+      ).source,
+    ).toBe("discovery");
+  });
+
   it("writes an initial status_history row with null fromStatus", () => {
     const job = make({ status: "Applied" });
     const detail = getJob(db, job.id);

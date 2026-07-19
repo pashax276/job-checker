@@ -30,6 +30,11 @@ describe("seedIfEmpty", () => {
     expect(detail?.statusHistory[0].fromStatus).toBeNull();
   });
 
+  it("marks seeded jobs with import provenance", () => {
+    seedIfEmpty(db, SEED_PATH);
+    expect(getJob(db, "job-001")?.source).toBe("import");
+  });
+
   it("is a no-op when the database already has jobs", () => {
     seedIfEmpty(db, SEED_PATH);
     const second = seedIfEmpty(db, SEED_PATH);
