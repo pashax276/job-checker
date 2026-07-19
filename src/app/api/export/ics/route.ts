@@ -1,17 +1,20 @@
 import { getDb } from "@/db/client";
-import { buildFollowUpCalendar } from "@/lib/ics";
+import { buildTrackerCalendar } from "@/lib/ics";
 import { listQuerySchema } from "@/lib/schemas";
 import type { Job } from "@/lib/types";
 import { listJobs } from "@/server/jobs";
+import { listAllSchedules } from "@/server/schedule";
 
 export const dynamic = "force-dynamic";
 
+// Subscribe-able calendar: booked interview steps + upcoming follow-ups.
 export async function GET(): Promise<Response> {
-  const jobs = listJobs(getDb(), listQuerySchema.parse({})) as Job[];
-  return new Response(buildFollowUpCalendar(jobs), {
+  const db = getDb();
+  const jobs = listJobs(db, listQuerySchema.parse({})) as Job[];
+  return new Response(buildTrackerCalendar(jobs, listAllSchedules(db)), {
     headers: {
       "content-type": "text/calendar; charset=utf-8",
-      "content-disposition": 'attachment; filename="follow-ups.ics"',
+      "content-disposition": 'attachment; filename="job-pipeline.ics"',
     },
   });
 }

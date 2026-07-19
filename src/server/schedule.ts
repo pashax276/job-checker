@@ -4,6 +4,30 @@ import type { DB } from "@/db/client";
 import { jobs, stageSchedule, type StageScheduleRecord } from "@/db/schema";
 import type { Status } from "@/lib/constants";
 
+export interface ScheduleWithJob {
+  jobId: string;
+  company: string;
+  role: string;
+  stage: string;
+  scheduledFor: string;
+}
+
+/** Every booked step joined with its job — feeds the ICS calendar. */
+export function listAllSchedules(db: DB): ScheduleWithJob[] {
+  return db
+    .select({
+      jobId: stageSchedule.jobId,
+      company: jobs.company,
+      role: jobs.role,
+      stage: stageSchedule.stage,
+      scheduledFor: stageSchedule.scheduledFor,
+    })
+    .from(stageSchedule)
+    .innerJoin(jobs, eq(stageSchedule.jobId, jobs.id))
+    .orderBy(asc(stageSchedule.scheduledFor))
+    .all();
+}
+
 export function listSchedule(db: DB, jobId: string): StageScheduleRecord[] {
   return db
     .select()

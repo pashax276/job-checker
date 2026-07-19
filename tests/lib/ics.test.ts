@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildFollowUpCalendar } from "@/lib/ics";
+import { buildTrackerCalendar, type ScheduledStepEvent } from "@/lib/ics";
 import type { Job } from "@/lib/types";
+
+const buildFollowUpCalendar = (jobs: Job[], today: Date) =>
+  buildTrackerCalendar(jobs, [], today);
 
 const TODAY = new Date(2026, 6, 17, 12, 0, 0);
 
@@ -53,5 +56,47 @@ describe("buildFollowUpCalendar", () => {
     const ics = buildFollowUpCalendar([job({ followUpDate: "2026-07-20" })], TODAY);
     expect(ics.includes("\r\n")).toBe(true);
     expect(/[^\r]\n/.test(ics)).toBe(false);
+  });
+
+  it("emits VEVENTs for booked interview steps, past ones included", () => {
+    const steps: ScheduledStepEvent[] = [
+      {
+        jobId: "a",
+        company: "Qualcomm",
+        role: "Senior Platform Engineer",
+        stage: "HM Interview",
+        scheduledFor: "2026-07-16",
+      },
+      {
+        jobId: "b",
+        company: "TFN",
+        role: "Staff Infra",
+        stage: "Screen",
+        scheduledFor: "2026-07-21",
+      },
+    ];
+    const ics = buildTrackerCalendar([], steps, TODAY);
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+    expect(ics).toContain("DTSTART;VALUE=DATE:20260716");
+    expect(ics).toContain("SUMMARY:HM Interview: Qualcomm — Senior Platform Engineer");
+    expect(ics).toContain("UID:a-hm-interview@job-tracker");
+    expect(ics).toContain("SUMMARY:Screen: TFN — Staff Infra");
+  });
+
+  it("merges steps and follow-ups in one calendar", () => {
+    const ics = buildTrackerCalendar(
+      [job({ id: "f", followUpDate: "2026-07-25" })],
+      [
+        {
+          jobId: "s",
+          company: "X",
+          role: "R",
+          stage: "Panel",
+          scheduledFor: "2026-07-30",
+        },
+      ],
+      TODAY,
+    );
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(2);
   });
 });
