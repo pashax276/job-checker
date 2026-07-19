@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { DueBadge, StatusBadge, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
+import { MonthCalendar } from "@/components/month-calendar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useJobs, useStats } from "@/hooks/use-jobs";
@@ -296,58 +297,8 @@ export default function DashboardPage() {
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1">
-              {stats.events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing booked. Set step dates in a job&apos;s Scheduled steps.
-                </p>
-              ) : (
-                Object.entries(
-                  stats.events.reduce<Record<string, typeof stats.events>>(
-                    (acc, event) => ({
-                      ...acc,
-                      [event.date]: [...(acc[event.date] ?? []), event],
-                    }),
-                    {},
-                  ),
-                ).map(([date, dayEvents]) => (
-                  <div key={date} className="flex gap-3">
-                    <span className="font-data w-16 shrink-0 pt-1 text-xs text-muted-foreground">
-                      {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      {dayEvents.map((event) => (
-                        <button
-                          key={`${event.jobId}-${event.kind}`}
-                          type="button"
-                          onClick={() => setSelectedId(event.jobId)}
-                          className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs transition-colors hover:bg-accent/50"
-                        >
-                          <span
-                            aria-hidden
-                            className="size-1.5 shrink-0 rounded-full"
-                            style={{
-                              background:
-                                event.kind === "Follow-up"
-                                  ? "var(--due)"
-                                  : (STATUS_VAR[event.kind as Status] ??
-                                    "var(--muted-foreground)"),
-                            }}
-                          />
-                          <span className="truncate">{event.company}</span>
-                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                            {event.kind}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
+            <CardContent>
+              <MonthCalendar events={stats.events} onSelect={setSelectedId} />
             </CardContent>
           </Card>
 

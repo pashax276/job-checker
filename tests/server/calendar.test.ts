@@ -44,7 +44,7 @@ describe("stats calendar events", () => {
     ]);
   });
 
-  it("excludes past bookings and follow-ups of inactive jobs", () => {
+  it("includes past bookings (a real calendar shows history) but never inactive follow-ups", () => {
     const old = createJob(
       db,
       jobCreateSchema.parse({ company: "PastCo", role: "R", status: "Screen" }),
@@ -59,7 +59,9 @@ describe("stats calendar events", () => {
         followUpDate: "2026-07-30",
       }),
     );
-    expect(getStats(db, TODAY).events).toHaveLength(0);
+    const events = getStats(db, TODAY).events;
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ company: "PastCo", date: "2026-07-01" });
   });
 
   it("includes a same-day event", () => {

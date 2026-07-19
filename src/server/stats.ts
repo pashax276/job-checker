@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, inArray, isNotNull, lte, not, notInArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, lte, not, notInArray, sql } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { jobs, leads, stageSchedule, statusHistory } from "@/db/schema";
 import {
@@ -201,9 +201,8 @@ export function getStats(db: DB, today = new Date()): Stats {
     };
   }
 
-  // Upcoming calendar: booked stage dates plus active jobs' follow-ups,
-  // today onward, soonest first.
-  const todayIso = toLocalIsoDate(today);
+  // Calendar events: every booked stage date (past ones included — the
+  // month grid shows history) plus active jobs' follow-ups, soonest first.
   const bookedEvents: CalendarEvent[] = db
     .select({
       date: stageSchedule.scheduledFor,
@@ -213,7 +212,6 @@ export function getStats(db: DB, today = new Date()): Stats {
     })
     .from(stageSchedule)
     .innerJoin(jobs, eq(stageSchedule.jobId, jobs.id))
-    .where(gte(stageSchedule.scheduledFor, todayIso))
     .all();
   const followUpEvents: CalendarEvent[] = db
     .select({
@@ -222,18 +220,12 @@ export function getStats(db: DB, today = new Date()): Stats {
       company: jobs.company,
     })
     .from(jobs)
-    .where(
-      and(
-        activeCondition(),
-        isNotNull(jobs.followUpDate),
-        gte(jobs.followUpDate, todayIso),
-      ),
-    )
+    .where(and(activeCondition(), isNotNull(jobs.followUpDate)))
     .all()
     .map((row) => ({ ...row, kind: "Follow-up" }));
   const events = [...bookedEvents, ...followUpEvents]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 60);
+    .slice(0, 200);
 
   const newLeads =
     db.select({ n: count() }).from(leads).where(eq(leads.status, "new")).get()
