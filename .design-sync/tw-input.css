@@ -1,0 +1,37 @@
+/* design-sync Tailwind input: the app's real globals plus a safelist.
+   Rendered designs receive only this compiled closure — there is no Tailwind
+   compiler at design time, so every utility the claude.ai/design agent may
+   write must already be compiled here. Bare token utilities and common layout
+   classes are force-included via @source inline. */
+@import "../src/app/globals.css";
+
+/* Token vocabulary — surfaces, text, borders, rings */
+@source inline("bg-{background,card,popover,muted,accent,secondary,primary,destructive,input,border,sidebar,sidebar-accent,sidebar-primary}");
+@source inline("text-{foreground,background,muted-foreground,card-foreground,popover-foreground,accent-foreground,secondary-foreground,primary,primary-foreground,destructive,sidebar-foreground}");
+@source inline("border-{border,input,ring,primary,destructive,muted,accent}");
+@source inline("ring-{ring,primary,destructive,border,foreground}");
+@source inline("{bg,ring}-{primary,destructive,muted,accent,foreground,ring}/{5,10,15,20,30,40,50}");
+
+/* App domain tokens — tiers, statuses, due, charts */
+@source inline("{bg,text,border}-tier-{1,2,3,4,5,closed}");
+@source inline("{bg,border}-tier-{1,2,3,4,5,closed}/{10,30}");
+@source inline("{bg,text}-status-{evaluating,applied,screen,assessment,panel,offer,skipped,rejected}");
+@source inline("{bg,text,border}-due");
+@source inline("bg-due/15 border-due/40");
+@source inline("{bg,text}-chart-{1,2,3,4,5}");
+
+/* Layout staples the design agent reaches for */
+@source inline("text-{left,center,right}");
+@source inline("h-{4,5,6,8,10,12,16,20,24,32,40,48,56,64,80,96}");
+@source inline("w-{16,20,24,32,40,48,56,64,72,80,96,full,fit,auto}");
+@source inline("max-w-{xs,sm,md,lg,xl,2xl,4xl,6xl,full}");
+@source inline("min-h-{screen,full,0}");
+@source inline("grid grid-cols-{1,2,3,4,5,6} col-span-{1,2,3,4} gap-{1,2,3,4,6,8}");
+@source inline("{p,px,py,pt,pb,pl,pr}-{0,1,2,3,4,5,6,8,10,12,16}");
+@source inline("{m,mx,my,mt,mb,ml,mr}-{0,1,2,3,4,6,8,auto}");
+@source inline("space-{x,y}-{1,2,3,4,6}");
+@source inline("flex flex-{col,row,wrap,1} items-{start,center,end,stretch,baseline} justify-{start,center,end,between} shrink-0 grow");
+@source inline("rounded-{sm,md,lg,xl,2xl,3xl,full}");
+@source inline("font-{normal,medium,semibold,bold} text-{xs,sm,base,lg,xl,2xl,3xl} tracking-{tight,wide} truncate");
+@source inline("divide-{x,y} divide-border border border-{0,2,t,b,l,r}");
+@source inline("overflow-{hidden,auto,y-auto} relative absolute sticky top-0 inset-0 z-{10,20,50}");

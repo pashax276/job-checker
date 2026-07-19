@@ -26,6 +26,27 @@ test.describe("smoke", () => {
     await expect(page.getByText("DUE").first()).toBeVisible();
   });
 
+  test("filter changes never hang the page (regression: unstable table data identity)", async ({
+    page,
+  }) => {
+    await page.goto("/table");
+    await expect(page.getByText(/\d+ jobs/)).toBeVisible();
+    // due-only checkbox: was a synchronous livelock before the EMPTY_JOBS fix
+    await page.getByRole("checkbox").first().click();
+    await expect(page.getByText(/\d+ jobs/)).toBeVisible();
+    await page.getByRole("checkbox").first().click();
+    // status filter select swaps the query key the same way
+    await page.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "Applied", exact: true }).click();
+    await expect(page.getByText(/\d+ jobs/)).toBeVisible();
+  });
+
+  test("row click opens the job drawer with history", async ({ page }) => {
+    await page.goto("/table");
+    await page.locator("tbody tr").first().click();
+    await expect(page.getByText("Status history")).toBeVisible();
+  });
+
   test("inline status change persists across reload", async ({ page }) => {
     await page.goto("/table");
     const row = page.getByRole("row").filter({ hasText: "Platform Science" });

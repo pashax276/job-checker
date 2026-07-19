@@ -45,6 +45,12 @@ import type { Job } from "@/lib/types";
 
 const ALL = "__all__";
 
+// Stable fallback for loading states. An inline `jobs ?? []` hands TanStack a
+// new array identity every render, and any filter change (query-key swap ->
+// data undefined) then livelocks the page in a synchronous re-render loop
+// that never yields to let the fetch resolve.
+const EMPTY_JOBS: Job[] = [];
+
 function SortIcon({ dir }: { dir: false | "asc" | "desc" }) {
   if (dir === "asc") return <ArrowUp className="size-3" aria-hidden />;
   if (dir === "desc") return <ArrowDown className="size-3" aria-hidden />;
@@ -79,6 +85,11 @@ function InlineStatus({ job }: { job: Job }) {
 }
 
 function TableView() {
+  // React Compiler opt-out: TanStack Table v8's useReactTable returns
+  // mutable/unstable functions the compiler must not memoize — with it on,
+  // any data-identity change (e.g. toggling a filter) live-locks the render.
+  // https://tanstack.com/table/latest docs: "use no memo" with React Compiler.
+  "use no memo";
   const params = useSearchParams();
   const q = params.get("q") ?? undefined;
   const [status, setStatus] = useState<Status | undefined>(undefined);
@@ -189,7 +200,7 @@ function TableView() {
   );
 
   const table = useReactTable({
-    data: jobs ?? [],
+    data: jobs ?? EMPTY_JOBS,
     columns,
     state: { sorting, columnVisibility },
     onSortingChange: setSorting,
@@ -237,13 +248,19 @@ function TableView() {
             ))}
           </SelectContent>
         </Select>
-        <Label className="flex items-center gap-2 text-xs">
+        {/* Checkbox must NOT be nested inside the label: the Base UI checkbox
+            (button + hidden input) re-dispatches label-synthesized clicks,
+            which loop forever when the control is a label descendant. */}
+        <div className="flex items-center gap-2">
           <Checkbox
+            id="filter-due-only"
             checked={dueOnly}
             onCheckedChange={(c) => setDueOnly(c === true)}
           />
-          Follow-up due
-        </Label>
+          <Label htmlFor="filter-due-only" className="text-xs">
+            Follow-up due
+          </Label>
+        </div>
         {q ? (
           <span className="text-xs text-muted-foreground">
             searching “{q}”

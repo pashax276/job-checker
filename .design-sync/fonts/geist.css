@@ -1,0 +1,16 @@
+/* Vendored Geist variable fonts (latin subset, weights 100-900), same Google
+   Fonts source the app's next/font/google loader uses. SIL OFL licensed. */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./geist-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./geist-mono-latin.woff2") format("woff2");
+}

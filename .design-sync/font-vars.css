@@ -1,0 +1,7 @@
+/* next/font injects these vars on <html> at app runtime; previews and designs
+   built with the DS get them from here instead. Family names must match the
+   @font-face rules in .design-sync/fonts/geist.css. */
+:root {
+  --font-geist-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}

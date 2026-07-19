@@ -131,9 +131,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Sun className="hidden size-4 dark:block" aria-hidden />
             <Moon className="size-4 dark:hidden" aria-hidden />
-            <span className="max-md:hidden">
-              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
-            </span>
+            {/* CSS-driven text: server HTML can't know the theme (avoids
+                hydration text mismatch) */}
+            <span className="hidden max-md:hidden dark:inline">Light mode</span>
+            <span className="inline max-md:hidden dark:hidden">Dark mode</span>
           </Button>
         </div>
       </aside>
