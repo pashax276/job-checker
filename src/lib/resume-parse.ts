@@ -1,12 +1,60 @@
 const BULLET_MARKER_RE = /^\s*[•\-–—*▪‣·]\s+/;
+const HEADER_RE = /^[A-Z][A-Z\s/&]{3,}$/; // ALL-CAPS section headers
+const EMPLOYER_RE = /^(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)$/;
+const PERIOD_RE =
+  /(19|20)\d{2}|present|current/i; // third pipe segment must look like dates
 
-/** Marker-prefixed lines with the marker stripped, in document order. */
+export interface ExperienceEntry {
+  company: string;
+  title: string;
+  period: string;
+}
+
+/**
+ * Marker-prefixed lines with markers stripped, in document order. PDF
+ * extraction wraps long bullets across lines, so non-marker lines that
+ * follow a bullet (and aren't headers/employer lines) are merged back in.
+ */
 export function extractBullets(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .filter((line) => BULLET_MARKER_RE.test(line))
-    .map((line) => line.replace(BULLET_MARKER_RE, "").trim())
-    .filter((line) => line.length > 0);
+  const bullets: string[] = [];
+  let open = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line === "" || HEADER_RE.test(line)) {
+      open = false;
+      continue;
+    }
+    if (EMPLOYER_RE.test(line) && PERIOD_RE.test(line.split("|").at(-1) ?? "")) {
+      open = false;
+      continue;
+    }
+    if (BULLET_MARKER_RE.test(raw)) {
+      bullets.push(raw.replace(BULLET_MARKER_RE, "").trim());
+      open = true;
+      continue;
+    }
+    if (open && bullets.length > 0) {
+      bullets[bullets.length - 1] = `${bullets[bullets.length - 1]} ${line}`;
+    }
+  }
+  return bullets.filter((b) => b.length > 0);
+}
+
+/** Job history from "Company | Title | Period" lines. */
+export function extractExperience(text: string): ExperienceEntry[] {
+  const entries: ExperienceEntry[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const match = EMPLOYER_RE.exec(raw.trim());
+    if (!match) continue;
+    const [, company, title, period] = match;
+    if (!PERIOD_RE.test(period) || /@|\d{3}[-.\s]\d{3}/.test(period)) continue;
+    entries.push({
+      company: company.trim(),
+      title: title.trim(),
+      period: period.trim(),
+    });
+  }
+  return entries;
 }
 
 /**

@@ -41,6 +41,7 @@ export const documents = sqliteTable("documents", {
   extractedText: text("extracted_text").notNull().default(""),
   bullets: text("bullets"), // JSON string[]
   skills: text("skills"), // JSON string[]
+  experience: text("experience"), // JSON {company,title,period}[]
   createdAt: text("created_at").notNull(),
 });
 

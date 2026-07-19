@@ -1,4 +1,5 @@
 import type { DocumentRecord } from "@/db/schema";
+import type { ExperienceEntry } from "@/lib/resume-parse";
 import type { DocumentKind } from "@/server/documents";
 
 export interface DocumentDto {
@@ -9,6 +10,7 @@ export interface DocumentDto {
   mimeType: string;
   bullets: string[];
   skills: string[];
+  experience: ExperienceEntry[];
   createdAt: string;
 }
 
@@ -21,6 +23,7 @@ export function toDto(record: DocumentRecord): DocumentDto {
     mimeType: record.mimeType,
     bullets: JSON.parse(record.bullets ?? "[]") as string[],
     skills: JSON.parse(record.skills ?? "[]") as string[],
+    experience: JSON.parse(record.experience ?? "[]") as ExperienceEntry[],
     createdAt: record.createdAt,
   };
 }

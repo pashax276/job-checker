@@ -4,7 +4,12 @@ import path from "node:path";
 import { desc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { documents, type DocumentRecord } from "@/db/schema";
-import { extractBullets, extractSkills } from "@/lib/resume-parse";
+import { log } from "@/lib/log";
+import {
+  extractBullets,
+  extractExperience,
+  extractSkills,
+} from "@/lib/resume-parse";
 
 export type DocumentKind = "resume" | "cover-letter";
 
@@ -22,10 +27,24 @@ export interface DocumentUpload {
   data: Buffer;
 }
 
+/**
+ * pdfjs' legacy build imports DOM drawing globals at module scope; when the
+ * optional @napi-rs/canvas is unavailable it throws before we can extract
+ * text (which needs none of them). Stub just enough to load.
+ */
+function ensurePdfDomGlobals(): void {
+  for (const name of ["DOMMatrix", "ImageData", "Path2D"]) {
+    if (!(name in globalThis)) {
+      Reflect.set(globalThis, name, class {});
+    }
+  }
+}
+
 async function extractText(upload: DocumentUpload): Promise<string> {
   const lower = upload.fileName.toLowerCase();
   try {
     if (lower.endsWith(".pdf") || upload.mimeType === "application/pdf") {
+      ensurePdfDomGlobals();
       const { PDFParse } = await import("pdf-parse");
       const parser = new PDFParse({ data: new Uint8Array(upload.data) });
       const result = await parser.getText();
@@ -37,8 +56,14 @@ async function extractText(upload: DocumentUpload): Promise<string> {
       return result.value ?? "";
     }
     return upload.data.toString("utf8");
-  } catch {
-    // Parsing is best-effort; the file itself is still stored and usable.
+  } catch (err: unknown) {
+    // Best-effort: the file is still stored — but never fail silently again
+    // (a swallowed bundler error once cost a whole feature).
+    log.error(
+      `text extraction failed for ${upload.fileName}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
     return "";
   }
 }
@@ -62,10 +87,47 @@ export async function createDocument(
     extractedText: text,
     bullets: JSON.stringify(extractBullets(text)),
     skills: JSON.stringify(extractSkills(text)),
+    experience: JSON.stringify(extractExperience(text)),
     createdAt: new Date().toISOString(),
   };
   db.insert(documents).values(record).run();
   return record;
+}
+
+/**
+ * Re-run extraction from the stored file (e.g. after a parser fix). Manually
+ * added skills are preserved — extracted and manual sets are merged.
+ */
+export async function reparseDocument(
+  db: DB,
+  id: string,
+  dir = documentsDir(),
+): Promise<DocumentRecord | null> {
+  const current = getDocument(db, id);
+  if (!current) return null;
+  const data = readDocumentFile(id, dir);
+  if (!data) throw new Error("Stored file is missing");
+
+  const text = await extractText({
+    kind: current.kind as DocumentKind,
+    name: current.name,
+    fileName: current.fileName,
+    mimeType: current.mimeType,
+    data,
+  });
+  const manualSkills = JSON.parse(current.skills ?? "[]") as string[];
+  const mergedSkills = [
+    ...new Set([...extractSkills(text), ...manualSkills]),
+  ];
+  const next: DocumentRecord = {
+    ...current,
+    extractedText: text,
+    bullets: JSON.stringify(extractBullets(text)),
+    skills: JSON.stringify(mergedSkills),
+    experience: JSON.stringify(extractExperience(text)),
+  };
+  db.update(documents).set(next).where(eq(documents.id, id)).run();
+  return next;
 }
 
 export function listDocuments(db: DB, kind?: DocumentKind): DocumentRecord[] {

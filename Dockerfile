@@ -33,6 +33,9 @@ COPY --chown=node:node --from=build /app/.next/static ./.next/static
 COPY --chown=node:node --from=build /app/public ./public
 COPY --chown=node:node --from=build /app/drizzle ./drizzle
 COPY --chown=node:node --from=build /app/data/jobs_seed.json ./data/jobs_seed.json
+# pdfjs loads its worker from a computed path the standalone tracer cannot
+# see — ship the package whole or PDF text extraction dies at runtime.
+COPY --chown=node:node --from=build /app/node_modules/pdfjs-dist ./node_modules/pdfjs-dist
 
 # Non-root; /data is the SQLite volume.
 RUN mkdir -p /data && chown node:node /data

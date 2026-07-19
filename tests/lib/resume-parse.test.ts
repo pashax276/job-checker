@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { extractBullets, extractSkills } from "@/lib/resume-parse";
+import {
+  extractBullets,
+  extractExperience,
+  extractSkills,
+} from "@/lib/resume-parse";
+
+// Shape mirrors real PDF extraction: dash markers, wrapped continuation
+// lines, ALL-CAPS section headers, pipe-separated employer lines.
+const PDF_SHAPED = `JANE DOE
+Senior Platform Engineer
+PROFESSIONAL EXPERIENCE
+Kyriba | Senior Platform / DevOps Engineer | Apr 2024 - Present
+San Diego, CA
+- Own platform engineering and DevOps automation across approximately 10 FinTech SaaS platforms with
+sandbox, pre-production, and production environments, multiple EKS clusters, and 400+ Linux hosts.
+- Lead the CentOS 7 to Amazon Linux 2023 modernization across application and EKS fleets.
+Acme Corp | Cloud Engineer | Jan 2020 - Mar 2024
+- Built Terraform modules used by 6 teams.
+CORE SKILLS
+Cloud: AWS, EC2, Kubernetes
+`;
 
 const SAMPLE = `PAVLO LISNYKOV
 Senior Platform Engineer
@@ -33,6 +53,44 @@ describe("extractBullets", () => {
 
   it("returns empty for empty text", () => {
     expect(extractBullets("")).toEqual([]);
+  });
+
+  it("merges wrapped continuation lines into their bullet", () => {
+    const bullets = extractBullets(PDF_SHAPED);
+    expect(bullets[0]).toContain("400+ Linux hosts");
+    expect(bullets[0]).toMatch(/platforms with sandbox, pre-production/);
+    expect(bullets[1]).toMatch(/^Lead the CentOS 7/);
+    expect(bullets).toHaveLength(3);
+  });
+
+  it("does not glue employer or header lines into bullets", () => {
+    const bullets = extractBullets(PDF_SHAPED).join("\n");
+    expect(bullets).not.toContain("Acme Corp |");
+    expect(bullets).not.toContain("CORE SKILLS");
+  });
+});
+
+describe("extractExperience", () => {
+  it("parses pipe-separated employer lines into job history", () => {
+    const experience = extractExperience(PDF_SHAPED);
+    expect(experience).toEqual([
+      {
+        company: "Kyriba",
+        title: "Senior Platform / DevOps Engineer",
+        period: "Apr 2024 - Present",
+      },
+      {
+        company: "Acme Corp",
+        title: "Cloud Engineer",
+        period: "Jan 2020 - Mar 2024",
+      },
+    ]);
+  });
+
+  it("ignores pipe lines without a date-like third part", () => {
+    expect(
+      extractExperience("San Diego, CA | 858-000-0000 | someone@example.com"),
+    ).toEqual([]);
   });
 });
 

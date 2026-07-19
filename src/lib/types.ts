@@ -34,6 +34,7 @@ export interface DocumentMeta {
   mimeType: string;
   bullets: string[];
   skills: string[];
+  experience: Array<{ company: string; title: string; period: string }>;
   createdAt: string;
 }
 

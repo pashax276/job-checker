@@ -1,7 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Plus, Trash2, Upload, X } from "lucide-react";
+import {
+  Download,
+  FileText,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -95,6 +103,17 @@ function SkillsEditor({ doc }: { doc: DocumentMeta }) {
 function DocumentCard({ doc }: { doc: DocumentMeta }) {
   const qc = useQueryClient();
   const [showAllBullets, setShowAllBullets] = useState(false);
+  const reparse = useMutation({
+    mutationFn: () =>
+      api<DocumentMeta>(`/api/documents/${doc.id}/reparse`, { method: "POST" }),
+    onSuccess: (updated) => {
+      toast.success(
+        `Re-parsed: ${updated.bullets.length} bullets, ${updated.skills.length} skills, ${updated.experience.length} roles`,
+      );
+      void qc.invalidateQueries({ queryKey: ["documents"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
   const remove = useMutation({
     mutationFn: () => api(`/api/documents/${doc.id}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -119,6 +138,19 @@ function DocumentCard({ doc }: { doc: DocumentMeta }) {
         <Badge variant="outline" className="font-data text-[10px]">
           {doc.kind === "resume" ? "resume" : "cover letter"}
         </Badge>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-1.5 text-[10px]"
+          disabled={reparse.isPending}
+          onClick={() => reparse.mutate()}
+          title="Re-run text extraction from the stored file"
+        >
+          <RefreshCw
+            className={reparse.isPending ? "size-3 animate-spin" : "size-3"}
+            aria-hidden
+          />
+        </Button>
         <a
           href={`/api/documents/${doc.id}/file`}
           className="text-muted-foreground hover:text-primary"
@@ -145,6 +177,26 @@ function DocumentCard({ doc }: { doc: DocumentMeta }) {
           {doc.fileName} · uploaded{" "}
           {new Date(doc.createdAt).toLocaleDateString()}
         </p>
+        {doc.experience.length > 0 ? (
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+              Job history
+            </p>
+            <ul className="space-y-0.5 text-xs">
+              {doc.experience.map((entry, i) => (
+                <li key={i} className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium">{entry.company}</span>
+                    <span className="text-muted-foreground"> — {entry.title}</span>
+                  </span>
+                  <span className="font-data shrink-0 text-[10px] text-muted-foreground">
+                    {entry.period}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {doc.bullets.length > 0 ? (
           <div className="space-y-1">
             <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
@@ -174,7 +226,8 @@ function DocumentCard({ doc }: { doc: DocumentMeta }) {
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            No bullet points parsed from this file.
+            No bullet points parsed from this file — try the re-parse button
+            above, or upload a .txt/.docx version.
           </p>
         )}
         <SkillsEditor doc={doc} />
