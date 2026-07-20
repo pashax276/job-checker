@@ -8,6 +8,11 @@ data:
     apiVersion: 1
     datasources:
       - name: Prometheus
+        # Fixed uid (not auto-generated) so grafana/dashboard.json can
+        # reference it directly instead of through a $datasource template
+        # variable — that variable didn't resolve for panels' automatic
+        # on-load queries even though the picker showed it selected.
+        uid: prometheus
         type: prometheus
         access: proxy
         url: http://prometheus.monitoring.svc.cluster.local:9090
