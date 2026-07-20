@@ -8,7 +8,7 @@
   "schemaVersion": 39,
   "refresh": "1m",
   "time": {
-    "from": "now-30d",
+    "from": "now-6h",
     "to": "now"
   },
   "panels": [
