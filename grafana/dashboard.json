@@ -1,43 +1,78 @@
 {
   "title": "Job Pipeline Tracker",
   "uid": "job-tracker",
-  "tags": ["job-tracker"],
+  "tags": [
+    "job-tracker"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "1m",
-  "time": { "from": "now-30d", "to": "now" },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
   "panels": [
     {
       "type": "stat",
       "title": "Active pipeline",
-      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "jobtracker_active_total",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ]
     },
     {
       "type": "stat",
       "title": "Overdue follow-ups",
-      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "jobtracker_overdue_follow_ups",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ],
       "fieldConfig": {
         "defaults": {
           "thresholds": {
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         }
@@ -46,69 +81,133 @@
     {
       "type": "stat",
       "title": "New leads",
-      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "jobtracker_leads_new",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ]
     },
     {
       "type": "stat",
       "title": "Documents",
-      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "jobtracker_documents_total",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ]
     },
     {
       "type": "timeseries",
       "title": "Jobs by status",
-      "gridPos": { "x": 0, "y": 4, "w": 16, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "jobtracker_jobs_by_status",
           "legendFormat": "{{status}}",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ]
     },
     {
       "type": "timeseries",
       "title": "Active pipeline over time",
-      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 6 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 8,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "jobtracker_active_total",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ]
     },
     {
       "type": "timeseries",
       "title": "Process memory (RSS)",
-      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 6 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "x": 8,
+        "y": 12,
+        "w": 8,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "process_resident_memory_bytes",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "range": true
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "bytes" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
     }
   ]
 }
