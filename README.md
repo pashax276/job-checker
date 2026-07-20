@@ -149,6 +149,23 @@ kubectl apply -f argocd/application.yaml
 vitest → Playwright smoke → build & push to GHCR on `main`. Heavily commented
 on purpose — it doubles as a GitHub Actions learning artifact.
 
+## Backups, restore, metrics
+
+Nightly SQLite snapshots land in `/data/backups` on the volume (14-day
+retention, `BACKUP_ENABLED=false` to disable, `BACKUP_CRON` to reschedule).
+Restore one with:
+
+```bash
+docker compose cp tracker:/data/backups ./data/   # pull snapshots out
+./scripts/restore-backup.sh data/backups/tracker-YYYY-MM-DD.db
+```
+
+`GET /metrics` serves Prometheus metrics (pipeline gauges + process metrics);
+`grafana/dashboard.json` is an importable dashboard for them, and the Helm
+chart can add scrape annotations via `metrics.scrapeAnnotations=true`. A
+morning digest (today's interviews, due follow-ups, new leads) POSTs to
+`DIGEST_WEBHOOK_URL` (ntfy/Slack-compatible) when set.
+
 ## Security posture
 
 - No auth by default (designed for localhost / cluster-internal use). Optional
