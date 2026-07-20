@@ -19,6 +19,11 @@ spec:
         {{- include "job-tracker.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.metrics.scrapeAnnotations }}
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "3000"
+        {{- end }}
     spec:
       securityContext:
         runAsNonRoot: true

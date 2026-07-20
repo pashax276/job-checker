@@ -51,6 +51,12 @@ basicAuth:
 # -- Extra non-secret environment variables rendered into the ConfigMap
 extraEnv: {}
 
+metrics:
+  # -- Add prometheus.io/* scrape annotations to the pod (for annotation-based
+  # -- Prometheus discovery). /metrics is always served either way; a Grafana
+  # -- dashboard for it lives in grafana/dashboard.json at the repo root.
+  scrapeAnnotations: false
+
 discovery:
   # -- In-process node-cron scheduler inside the app container (the Docker
   # -- path). Prefer the CronJob below on Kubernetes; if cronJob.enabled is
