@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Columns, Rows3 } from "lucide-react";
+import { Columns, FileDown, Radar, Rows3 } from "lucide-react";
 import { useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
@@ -69,6 +69,18 @@ function JobCard({
   const threshold = WIP_THRESHOLDS[job.status];
   const stale =
     agingDays !== undefined && threshold !== undefined && agingDays >= threshold;
+  const sourceIcon =
+    job.source === "discovery" ? (
+      <Radar
+        className="size-3 shrink-0 text-primary/70"
+        aria-label="Found by discovery"
+      />
+    ) : job.source === "import" ? (
+      <FileDown
+        className="size-3 shrink-0 text-muted-foreground/70"
+        aria-label="Imported from tracker"
+      />
+    ) : null;
   if (compact) {
     return (
       <button
@@ -83,6 +95,7 @@ function JobCard({
         <span className="min-w-0 flex-1 truncate text-xs leading-tight">
           {job.company}
         </span>
+        {sourceIcon}
         <TierBadge tier={job.priorityTier} className="px-1 text-[9px]" />
       </button>
     );
@@ -97,8 +110,11 @@ function JobCard({
         dragging && "opacity-90 shadow-lg",
       )}
     >
-      <span className="block truncate text-[13px] leading-tight font-medium">
-        {job.company}
+      <span className="flex items-center gap-1.5">
+        <span className="min-w-0 flex-1 truncate text-[13px] leading-tight font-medium">
+          {job.company}
+        </span>
+        {sourceIcon}
       </span>
       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
         {job.role}
