@@ -36,6 +36,7 @@ export interface DocumentMeta {
   bullets: string[];
   skills: string[];
   experience: Array<{ company: string; title: string; period: string }>;
+  textExcerpt: string;
   createdAt: string;
 }
 

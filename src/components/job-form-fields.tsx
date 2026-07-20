@@ -55,15 +55,22 @@ function DocumentSelect({
     queryKey: ["documents", kind],
     queryFn: () => api<DocumentMeta[]>(`/api/documents?kind=${kind}`),
   });
+  // The value is a document id — resolve the display label ourselves so the
+  // trigger never falls back to showing the raw UUID.
+  const selectedName = value
+    ? (docs?.find((d) => d.id === value)?.name ?? "…")
+    : "None";
   return (
-    <div className="space-y-1">
+    <div className="min-w-0 space-y-1">
       <Label>{label}</Label>
       <Select
         value={value || NONE}
         onValueChange={(v) => onChange(v === NONE || !v ? "" : v)}
       >
-        <SelectTrigger>
-          <SelectValue />
+        <SelectTrigger className="w-full min-w-0">
+          <SelectValue>
+            <span className="block truncate">{selectedName}</span>
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE} className="text-muted-foreground">

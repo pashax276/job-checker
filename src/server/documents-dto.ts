@@ -11,6 +11,7 @@ export interface DocumentDto {
   bullets: string[];
   skills: string[];
   experience: ExperienceEntry[];
+  textExcerpt: string;
   createdAt: string;
 }
 
@@ -24,6 +25,7 @@ export function toDto(record: DocumentRecord): DocumentDto {
     bullets: JSON.parse(record.bullets ?? "[]") as string[],
     skills: JSON.parse(record.skills ?? "[]") as string[],
     experience: JSON.parse(record.experience ?? "[]") as ExperienceEntry[],
+    textExcerpt: record.extractedText.slice(0, 2_500),
     createdAt: record.createdAt,
   };
 }
