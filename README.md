@@ -102,7 +102,7 @@ boundary.
 GET/POST      /api/jobs           list (status, tier, q, dueOnly) / create
 GET/PATCH/DEL /api/jobs/:id       detail incl. statusHistory / partial update / delete
 POST          /api/import         multipart xlsx|csv, mode=preview|commit + per-row decisions
-GET           /api/export         ?format=xlsx|json      GET /api/export/ics
+GET           /api/export         ?format=xlsx|csv|json  GET /api/export/ics
 GET           /api/stats          dashboard aggregates
 GET/POST      /api/watchlist      PATCH/DELETE /api/watchlist/:id
 GET           /api/leads          ?status=new|promoted|dismissed
@@ -138,9 +138,43 @@ path with automated sync + prune + self-heal. On a practice cluster (kind/k3d):
 
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# --server-side is required: the stock install.yaml's CRDs exceed the
+# 262144-byte last-applied-configuration annotation limit that plain
+# `kubectl apply` relies on.
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
+  --server-side --force-conflicts
+kubectl -n argocd wait --for=condition=Available deployment --all --timeout=240s
+```
+
+If your fork is **private**, the repo-server needs a credential before it can
+clone it — register one before applying the Application (a GitHub PAT via
+`gh auth token` works, or any token with repo read access):
+
+```bash
+kubectl -n argocd create secret generic repo-job-checker \
+  --from-literal=type=git \
+  --from-literal=url=https://github.com/<you>/job-checker.git \
+  --from-literal=username=<you> \
+  --from-literal=password="$(gh auth token)"
+kubectl -n argocd label secret repo-job-checker argocd.argoproj.io/secret-type=repository
+```
+
+Then, with CI pushing to GHCR (see below), or after a `kind load docker-image`
++ `image.pullPolicy=Never` override for a registry-less demo:
+
+```bash
 # edit argocd/application.yaml: set repoURL to your fork and image.repository
 kubectl apply -f argocd/application.yaml
+```
+
+Optional but recommended: [argocd/application-monitoring.yaml](argocd/application-monitoring.yaml)
+deploys a standalone Prometheus + Grafana (not the full `kube-prometheus-stack`
+operator bundle — this app has one thing worth scraping) that auto-provisions
+the `grafana/dashboard.json` dashboard. It needs one manual Secret first; see
+[observability/README.md](observability/README.md).
+
+```bash
+kubectl apply -f argocd/application-monitoring.yaml
 ```
 
 ## CI

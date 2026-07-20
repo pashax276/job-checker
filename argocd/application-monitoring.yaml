@@ -1,0 +1,27 @@
+# Argo CD Application for the observability stack (Prometheus + Grafana).
+# Sibling to application.yaml — same repo, same sync policy, separate
+# destination namespace so it can be pruned/deleted independently of the app.
+# Requires the grafana-admin Secret created out-of-band; see observability/README.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: job-tracker-monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # CHANGE ME: your Git remote for this repository
+    repoURL: https://github.com/pashax276/job-checker.git
+    targetRevision: main
+    path: observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
