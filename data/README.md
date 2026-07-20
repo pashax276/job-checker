@@ -1,9 +1,11 @@
 # Seed data
 
 `jobs_seed.json` is imported automatically on first run **only when the
-database is empty**. As of 2026-07-17 it contains the real 53-job export from
-the Excel tracker (envelope format: `{ exportedAt, source, jobs: [...] }`;
-a bare JSON array also works).
+database is empty**. The tracked file is a **synthetic** 53-job dataset
+(personal data stays out of git). A real export lives locally as
+`jobs_seed.local.json` (gitignored) — copy it over `jobs_seed.json` before a
+fresh first boot to seed real data. Both a bare JSON array and the exporter
+envelope (`{ exportedAt, source, jobs: [...] }`) are accepted.
 
 To re-seed after changing this file, wipe the database first:
 `docker compose down -v && docker compose up -d --build` (the image bakes the

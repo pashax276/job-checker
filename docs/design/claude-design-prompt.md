@@ -59,11 +59,11 @@ column headers show mono counts.
    headers with promote/dismiss actions; **Unverified needs a distinct
    "verify before trusting" tone without being alarming**.
 
-Sample data flavor (use realistic rows like): "Meridian Systems — Senior
-DevOps/SRE Infrastructure Engineer, Panel, 1 - Top, follow-up 7/21" ·
-"Qualcomm — Senior/Staff Platform-DevOps Engineer, Applied" · "ResMed —
-Senior Platform Engineer, Evaluating". Statuses skew heavily toward
-Evaluating and Skipped — design for that imbalance.
+Sample data flavor (use realistic rows like): "Platform Science — Senior
+Platform Engineer, Screen, 1 - Top, follow-up 7/15" · "Babylist — Staff
+Site Reliability Engineer, Panel, 1 - Top" · "Cloudflare — Senior Platform
+Engineer, Evaluating". Statuses skew heavily toward Evaluating and
+Skipped — design for that imbalance.
 
 ## States to cover
 
