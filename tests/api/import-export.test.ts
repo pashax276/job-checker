@@ -138,6 +138,18 @@ describe("GET /api/export", () => {
     expect(buf.length).toBeGreaterThan(500);
   });
 
+  it("returns a csv attachment", async () => {
+    const res = await exportRoute.GET(
+      new Request("http://test/api/export?format=csv"),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/csv");
+    expect(res.headers.get("content-disposition")).toContain(".csv");
+    const text = await res.text();
+    expect(text).toContain("Company");
+    expect(text).toContain("Acme");
+  });
+
   it("rejects unknown formats", async () => {
     const res = await exportRoute.GET(
       new Request("http://test/api/export?format=pdf"),

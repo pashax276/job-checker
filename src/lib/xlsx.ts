@@ -19,6 +19,17 @@ const FIELD_BY_COLUMN: Record<(typeof TRACKER_COLUMNS)[number], keyof Job> = {
   "Posting URL": "postingUrl",
 };
 
+/** One job as a header-keyed record in the original tracker column order. */
+export function jobToTrackerRow(job: Job): TrackerRow {
+  const record: TrackerRow = {};
+  for (const col of TRACKER_COLUMNS) {
+    // Structured comp composes back into the original single column.
+    record[col] =
+      col === "Comp Notes" ? (composeComp(job) ?? "") : (job[FIELD_BY_COLUMN[col]] ?? "");
+  }
+  return record;
+}
+
 /** Build an .xlsx workbook in the original tracker column order. */
 export async function buildTrackerWorkbook(jobs: Job[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
@@ -26,14 +37,8 @@ export async function buildTrackerWorkbook(jobs: Job[]): Promise<Buffer> {
   sheet.addRow([...TRACKER_COLUMNS]);
   sheet.getRow(1).font = { bold: true };
   for (const job of jobs) {
-    sheet.addRow(
-      TRACKER_COLUMNS.map((col) =>
-        // Structured comp composes back into the original single column.
-        col === "Comp Notes"
-          ? (composeComp(job) ?? "")
-          : (job[FIELD_BY_COLUMN[col]] ?? ""),
-      ),
-    );
+    const record = jobToTrackerRow(job);
+    sheet.addRow(TRACKER_COLUMNS.map((col) => record[col]));
   }
   sheet.columns.forEach((col, i) => {
     col.width = i < 2 ? 28 : 16;

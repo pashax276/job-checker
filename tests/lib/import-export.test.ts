@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TRACKER_COLUMNS } from "@/lib/constants";
-import { parseCsv } from "@/lib/csv";
+import { buildTrackerCsv, parseCsv } from "@/lib/csv";
 import {
   buildImportPreview,
   coerceCellDate,
@@ -62,6 +62,35 @@ describe("xlsx round-trip", () => {
     expect(rows[0].Company).toBe("Platform Science");
     expect(rows[0]["Priority Tier"]).toBe("1 - Top");
     expect(rows[0]["Follow-Up Date"]).toBe("2026-07-15");
+    expect(rows[0]["Posting URL"]).toBe(
+      "https://boards.greenhouse.io/platformscience/jobs/1",
+    );
+    expect(rows[1].Company).toBe("Babylist");
+  });
+});
+
+describe("csv round-trip", () => {
+  it("writes the original tracker column order and reads values back", () => {
+    const jobs = [
+      job({
+        company: "Platform Science",
+        role: "Senior Platform Engineer",
+        priorityTier: "1 - Top",
+        status: "Screen",
+        followUpDate: "2026-07-15",
+        compNotes: "$165-190k",
+        notes: "Notes, with comma",
+        postingUrl: "https://boards.greenhouse.io/platformscience/jobs/1",
+      }),
+      job({ id: "job-002", company: "Babylist", role: "Staff SRE" }),
+    ];
+    const csv = buildTrackerCsv(jobs);
+    const rows = parseCsv(csv);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].Company).toBe("Platform Science");
+    expect(rows[0]["Priority Tier"]).toBe("1 - Top");
+    expect(rows[0]["Follow-Up Date"]).toBe("2026-07-15");
+    expect(rows[0].Notes).toBe("Notes, with comma");
     expect(rows[0]["Posting URL"]).toBe(
       "https://boards.greenhouse.io/platformscience/jobs/1",
     );

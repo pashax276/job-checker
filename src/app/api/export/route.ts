@@ -1,5 +1,6 @@
 import { getDb } from "@/db/client";
 import { apiError } from "@/lib/api-response";
+import { buildTrackerCsv } from "@/lib/csv";
 import { listQuerySchema } from "@/lib/schemas";
 import type { Job } from "@/lib/types";
 import { buildTrackerWorkbook } from "@/lib/xlsx";
@@ -30,5 +31,13 @@ export async function GET(request: Request): Promise<Response> {
       },
     });
   }
-  return apiError(`Unknown export format "${format}" (use xlsx or json)`, 400);
+  if (format === "csv") {
+    return new Response(buildTrackerCsv(jobs), {
+      headers: {
+        "content-type": "text/csv",
+        "content-disposition": `attachment; filename="job-tracker-${stamp}.csv"`,
+      },
+    });
+  }
+  return apiError(`Unknown export format "${format}" (use xlsx, csv, or json)`, 400);
 }
