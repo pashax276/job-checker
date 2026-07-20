@@ -63,3 +63,5 @@ ds-bundle/
 data/backups/
 data/files/
 data/backups/
+data/jobs_seed.local.json
+data/*.local.json
