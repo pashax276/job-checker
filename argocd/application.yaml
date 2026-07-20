@@ -12,14 +12,14 @@ spec:
   project: default
   source:
     # CHANGE ME: your Git remote for this repository
-    repoURL: https://github.com/OWNER/job-checker.git
+    repoURL: https://github.com/pashax276/job-checker.git
     targetRevision: main
     path: charts/job-tracker
     helm:
       valuesObject:
         image:
           # CHANGE ME: where CI pushes the image (GHCR on main)
-          repository: ghcr.io/OWNER/job-checker
+          repository: ghcr.io/pashax276/job-checker
           tag: latest
         discovery:
           cronJob:

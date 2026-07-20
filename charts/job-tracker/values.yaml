@@ -2,7 +2,7 @@
 # -- registry path, or to docker.io/library/job-checker-tracker with
 # -- pullPolicy Never for a `kind load docker-image` workflow.
 image:
-  repository: ghcr.io/OWNER/job-checker
+  repository: ghcr.io/pashax276/job-checker
   tag: "latest"
   pullPolicy: IfNotPresent
 
