@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { APP_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -149,6 +150,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="hidden max-md:hidden dark:inline">Light mode</span>
             <span className="inline max-md:hidden dark:hidden">Dark mode</span>
           </Button>
+          <p className="font-data px-2.5 pt-1 text-[10px] text-muted-foreground max-md:hidden">
+            v{APP_VERSION}
+          </p>
         </div>
       </aside>
 
@@ -200,9 +204,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-xs"
+                onClick={() => (window.location.href = "/api/export?format=csv")}
+              >
+                CSV (.csv)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs"
                 onClick={() => (window.location.href = "/api/export?format=json")}
               >
-                JSON (.json)
+                JSON (.json) — full dump
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-xs"

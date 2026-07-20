@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api-client";
 import { ATS_TYPES } from "@/lib/discovery-schemas";
+import { APP_VERSION } from "@/lib/version";
 
 interface WatchlistEntry {
   id: string;
@@ -463,6 +464,27 @@ export default function SettingsPage() {
           >
             Save blurb
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">About</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-xs text-muted-foreground">
+          <p className="font-data">
+            Pipeline v{APP_VERSION}
+          </p>
+          <p>
+            <a
+              href="https://github.com/pashax276/job-checker/releases"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Release notes on GitHub
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>

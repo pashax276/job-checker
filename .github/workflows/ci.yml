@@ -8,10 +8,13 @@
 #                                               ┘
 name: ci
 
-# Run on every push to main and on every pull request targeting main.
+# Run on every push to main, every pull request targeting main, and every
+# semver release tag (v1.2.3) — tags get the full pipeline too so a
+# versioned GHCR image only ever comes from a build that passed tests.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -87,9 +90,10 @@ jobs:
     name: build & push image (GHCR)
     runs-on: ubuntu-latest
     needs: [quality, smoke]
-    # Push images only from main — PRs still validate the Dockerfile via the
-    # build step, they just don't publish.
-    if: github.ref == 'refs/heads/main'
+    # Push images from main (rolling `latest`) and from version tags (semver
+    # tags below) — PRs still validate the Dockerfile via the build step,
+    # they just don't publish.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
       # Needed to push to ghcr.io using the workflow's own GITHUB_TOKEN.
