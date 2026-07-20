@@ -320,15 +320,15 @@ export default function DashboardPage() {
               <CardTitle className="text-sm">
                 Conversion funnel
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  furthest stage ever reached
+                  where each job stands now
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
               <p className="pb-1 text-[10px] leading-tight text-muted-foreground">
-                Historical: counts jobs that ever hit a stage, including ones
-                since closed or moved back — board columns show current stages
-                only.
+                Each job counts at the last stage it occupied — moving a card
+                backward corrects the funnel. Closed jobs (skipped/rejected)
+                credit the stage they dropped off at.
               </p>
               {stats.funnel.map((stage) => {
                 const total = stats.funnel[0]?.reached ?? 1;
