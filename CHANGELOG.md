@@ -4,6 +4,17 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.3.1] - 2026-07-21
+
+### Fixed
+- Every Prep card with empty notes defaulted to an autofocused textarea.
+  With multiple such cards on one page, they fought for focus on mount
+  and the browser auto-scrolled to whichever mounted last — silently
+  burying the new "nothing booked yet" banner (and anything else) off
+  the visible viewport. Autofocus now only fires on a genuine
+  user-triggered edit (clicking Edit), never on the initial page-load
+  mount.
+
 ## [1.3.0] - 2026-07-21
 
 ### Added

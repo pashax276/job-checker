@@ -11,7 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
@@ -379,6 +379,20 @@ function PrepNotes({
   // the "Questions to ask" section rendered there is this same text).
   const [value, setValue] = useState(initial);
   const dirty = value.trim() !== initial.trim();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Autofocus only a genuine user-triggered edit (clicking Edit, or a
+  // brand-new blank card), never the initial page-load mount — with many
+  // empty-notes cards on one page, every one defaulting to editing=true
+  // would otherwise fight for focus and the browser would auto-scroll to
+  // whichever mounted last, hiding whatever the user actually navigated to.
+  const skipNextAutoFocus = useRef(true);
+  useEffect(() => {
+    if (skipNextAutoFocus.current) {
+      skipNextAutoFocus.current = false;
+      return;
+    }
+    if (editing) textareaRef.current?.focus();
+  }, [editing]);
 
   if (!editing) {
     // The "Questions to ask" portion (if any) renders in the card's rail
@@ -406,6 +420,7 @@ function PrepNotes({
   return (
     <div className="space-y-1.5">
       <Textarea
+        ref={textareaRef}
         rows={4}
         placeholder={
           "Questions to ask, stories to have ready, topics to review…\n" +
@@ -414,7 +429,6 @@ function PrepNotes({
         className="field-sizing-content min-h-24 resize-y text-sm"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        autoFocus={initial.trim().length === 0}
       />
       <div className="flex justify-end gap-2">
         {initial.trim().length > 0 ? (

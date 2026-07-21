@@ -82,6 +82,10 @@ test.describe("smoke", () => {
     // "nothing booked yet" banner rather than a prep card
     await expect(page.getByText(/Nothing booked yet for/)).toBeVisible();
     await expect(page.getByText("Platform Science")).toBeVisible();
+    // regression: every empty-notes card defaulting to an autofocused
+    // textarea used to fight for focus on mount, auto-scrolling the page
+    // away from the top and burying this banner off-screen
+    expect(await page.evaluate(() => window.scrollY)).toBeLessThan(50);
     await page.getByRole("button", { name: "Open job" }).click();
     await expect(page.getByText("Timeline", { exact: true })).toBeVisible();
   });
