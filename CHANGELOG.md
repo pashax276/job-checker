@@ -4,6 +4,18 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.2.0] - 2026-07-21
+
+### Changed
+- Prep cards now always show a right-hand rail (research links, JD
+  snapshot, skill gaps, and the AI-generated "Questions to ask" section
+  when present) instead of only splitting into two columns when a brief
+  happened to include that heading — every card gets a purposeful right
+  column, not just ones with AI output.
+- Widened the Prep and Resumes pages from `max-w-4xl` to `max-w-6xl`.
+  Resumes already had a 2-column document grid; it was just starved for
+  room in a narrow container, squeezing each card to ~440px.
+
 ## [1.1.0] - 2026-07-21
 
 ### Fixed

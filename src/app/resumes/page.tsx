@@ -402,7 +402,7 @@ export default function ResumesPage() {
   const coverLetters = (docs ?? []).filter((d) => d.kind === "cover-letter");
 
   return (
-    <div className="max-w-4xl space-y-4 p-4">
+    <div className="max-w-6xl space-y-4 p-4">
       <div
         role="button"
         tabIndex={0}

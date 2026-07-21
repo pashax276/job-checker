@@ -137,6 +137,7 @@ function PrepCard({
   const missing = job
     ? (parseStoredSkillMatch(job.skillMatch)?.missing ?? [])
     : [];
+  const { sidebar } = splitPrepNotes(step.prepNotes ?? "");
 
   const save = useMutation({
     mutationFn: (prepNotes: string | null) =>
@@ -251,61 +252,79 @@ function PrepCard({
           Open job
         </Button>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <ResearchLinks company={step.company} />
-          <button
-            type="button"
-            onClick={() => downloadStepIcs(step)}
-            className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-px text-[10px] text-muted-foreground transition-colors hover:border-ring/50 hover:text-foreground"
-          >
-            <CalendarPlus className="size-2.5" aria-hidden />
-            .ics
-          </button>
+      <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_240px]">
+        <div className="min-w-0 space-y-2">
+          {aiEnabled ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 gap-1 text-[10px]"
+              disabled={generateQuestions.isPending}
+              onClick={() => generateQuestions.mutate()}
+            >
+              <Sparkles className="size-3" aria-hidden />
+              {generateQuestions.isPending
+                ? "Thinking…"
+                : "Generate likely questions (AI)"}
+            </Button>
+          ) : null}
+          <PrepNotes
+            key={`${step.prepNotes?.length ?? 0}`}
+            initial={step.prepNotes ?? ""}
+            disabled={save.isPending}
+            onSave={(text) => save.mutate(text || null)}
+          />
         </div>
-        {job?.jdSnapshot ? (
-          <details>
-            <summary className="cursor-pointer text-[10px] text-primary hover:underline">
-              job description snapshot
-            </summary>
-            <p className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
-              {job.jdSnapshot}
+        <aside className="space-y-3 lg:border-l lg:pl-4">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+              Research
             </p>
-          </details>
-        ) : null}
-        {missing.length > 0 ? (
-          <p className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
-            <span className="mr-1">Study up (JD asks, resume doesn&apos;t):</span>
-            {missing.map((skill) => (
-              <span
-                key={skill}
-                className="rounded-sm border border-status-assessment/40 bg-status-assessment/10 px-1 text-[10px] text-status-assessment"
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ResearchLinks company={step.company} />
+              <button
+                type="button"
+                onClick={() => downloadStepIcs(step)}
+                className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-px text-[10px] text-muted-foreground transition-colors hover:border-ring/50 hover:text-foreground"
               >
-                {skill}
-              </span>
-            ))}
-          </p>
-        ) : null}
-        {aiEnabled ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 gap-1 text-[10px]"
-            disabled={generateQuestions.isPending}
-            onClick={() => generateQuestions.mutate()}
-          >
-            <Sparkles className="size-3" aria-hidden />
-            {generateQuestions.isPending
-              ? "Thinking…"
-              : "Generate likely questions (AI)"}
-          </Button>
-        ) : null}
-        <PrepNotes
-          key={`${step.prepNotes?.length ?? 0}`}
-          initial={step.prepNotes ?? ""}
-          disabled={save.isPending}
-          onSave={(text) => save.mutate(text || null)}
-        />
+                <CalendarPlus className="size-2.5" aria-hidden />
+                .ics
+              </button>
+            </div>
+          </div>
+          {job?.jdSnapshot ? (
+            <details>
+              <summary className="cursor-pointer text-[10px] font-medium tracking-wide text-primary uppercase hover:underline">
+                JD snapshot
+              </summary>
+              <p className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                {job.jdSnapshot}
+              </p>
+            </details>
+          ) : null}
+          {missing.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                Study up
+              </p>
+              <p className="flex flex-wrap items-center gap-1">
+                {missing.map((skill) => (
+                  <span
+                    key={skill}
+                    className="rounded-sm border border-status-assessment/40 bg-status-assessment/10 px-1 text-[10px] text-status-assessment"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </p>
+            </div>
+          ) : null}
+          {sidebar ? (
+            <div className="space-y-1">
+              <PrepMarkdown text={sidebar} />
+            </div>
+          ) : null}
+        </aside>
       </CardContent>
     </Card>
   );
@@ -328,7 +347,9 @@ function PrepNotes({
   const dirty = value.trim() !== initial.trim();
 
   if (!editing) {
-    const { main, sidebar } = splitPrepNotes(initial);
+    // The "Questions to ask" portion (if any) renders in the card's rail
+    // instead — see PrepCard — so only the main narrative goes here.
+    const { main } = splitPrepNotes(initial);
     return (
       <div className="group relative rounded-md border bg-muted/20 p-3">
         <Button
@@ -340,20 +361,7 @@ function PrepNotes({
           <Pencil className="size-3" aria-hidden />
           Edit
         </Button>
-        <div
-          className={
-            sidebar
-              ? "grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]"
-              : undefined
-          }
-        >
-          <PrepMarkdown text={main} />
-          {sidebar ? (
-            <div className="border-t pt-2 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-4">
-              <PrepMarkdown text={sidebar} />
-            </div>
-          ) : null}
-        </div>
+        <PrepMarkdown text={main} />
       </div>
     );
   }
