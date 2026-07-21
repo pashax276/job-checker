@@ -202,18 +202,24 @@ export function getStats(db: DB, today = new Date()): Stats {
   }
   const appliedIndex = flowIndex.get("Applied")!;
   const reachedIndexOf = (job: (typeof allJobs)[number]): number => {
-    const candidates = [0];
-    if (job.dateApplied) candidates.push(appliedIndex);
     const current = flowIndex.get(job.status);
     if (current !== undefined) {
-      // Active in the flow: current position is the truth.
-      candidates.push(current);
-    } else {
-      // Skipped/Rejected: the last stage held before closing.
-      const last = lastFlowStage.get(job.id);
-      if (last !== undefined) candidates.push(last);
+      // Active in the flow: current position is the truth. Trust it even
+      // over a stale dateApplied — e.g. a card moved back to Evaluating or
+      // Skipped without clearing a dateApplied set from an earlier status.
+      return current;
     }
-    return Math.max(...candidates);
+    const last = lastFlowStage.get(job.id);
+    if (last !== undefined) {
+      // Skipped/Rejected with real flow history: the last stage held
+      // before closing, e.g. Evaluating -> Applied -> Rejected.
+      return last;
+    }
+    // No current-status or historical flow signal at all — a bare
+    // history-less import row (e.g. created straight into "Rejected" with
+    // no intermediate stages recorded). dateApplied is the only evidence
+    // left that they applied.
+    return job.dateApplied ? appliedIndex : 0;
   };
   const reachedIndices = allJobs.map(reachedIndexOf);
   const funnel: FunnelStage[] = PIPELINE_FLOW.map((status, i) => ({
