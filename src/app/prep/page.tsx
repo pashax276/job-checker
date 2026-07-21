@@ -6,6 +6,7 @@ import {
   ExternalLink,
   GraduationCap,
   Newspaper,
+  Pencil,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -13,6 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
+import { PrepMarkdown } from "@/components/prep-markdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +22,7 @@ import { useAiStatus } from "@/hooks/use-jobs";
 import { api } from "@/lib/api-client";
 import { toLocalIsoDate } from "@/lib/dates";
 import { buildTrackerCalendar } from "@/lib/ics";
+import { splitPrepNotes } from "@/lib/prep-notes";
 import { parseStoredSkillMatch } from "@/lib/skill-match";
 import type { Status } from "@/lib/constants";
 import type { Job } from "@/lib/types";
@@ -317,8 +320,44 @@ function PrepNotes({
   disabled: boolean;
   onSave: (text: string) => void;
 }) {
+  // Freshly-generated or pasted-in briefs are meant to be read, not edited —
+  // default to a rendered view and drop into the raw textarea on demand.
+  // Blank notes go straight to editing since there's nothing to read yet.
+  const [editing, setEditing] = useState(initial.trim().length === 0);
   const [value, setValue] = useState(initial);
   const dirty = value.trim() !== initial.trim();
+
+  if (!editing) {
+    const { main, sidebar } = splitPrepNotes(initial);
+    return (
+      <div className="group relative rounded-md border bg-muted/20 p-3">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="absolute top-1.5 right-1.5 h-6 gap-1 text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={() => setEditing(true)}
+        >
+          <Pencil className="size-3" aria-hidden />
+          Edit
+        </Button>
+        <div
+          className={
+            sidebar
+              ? "grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]"
+              : undefined
+          }
+        >
+          <PrepMarkdown text={main} />
+          {sidebar ? (
+            <div className="border-t pt-2 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-4">
+              <PrepMarkdown text={sidebar} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1.5">
       <Textarea
@@ -330,13 +369,30 @@ function PrepNotes({
         className="field-sizing-content min-h-24 resize-y text-sm"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        autoFocus={initial.trim().length === 0}
       />
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {initial.trim().length > 0 ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => {
+              setValue(initial);
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
+        ) : null}
         <Button
           size="sm"
           className="h-7 text-xs"
           disabled={disabled || !dirty}
-          onClick={() => onSave(value.trim())}
+          onClick={() => {
+            onSave(value.trim());
+            setEditing(false);
+          }}
         >
           Save notes
         </Button>
@@ -368,7 +424,7 @@ export default function PrepPage() {
     .reverse();
 
   return (
-    <div className="max-w-4xl space-y-4 p-4">
+    <div className="max-w-6xl space-y-4 p-4">
       <header className="flex items-center gap-2">
         <GraduationCap className="size-4 text-muted-foreground" aria-hidden />
         <div>
