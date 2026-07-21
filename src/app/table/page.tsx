@@ -17,9 +17,11 @@ import {
   Bookmark,
   Columns,
   ExternalLink,
+  GraduationCap,
   Plus,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
@@ -328,6 +330,22 @@ function TableView() {
             <span className="text-xs text-muted-foreground">—</span>
           );
         },
+      },
+      {
+        id: "prep",
+        header: "Prep",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Link
+            href={`/prep?job=${row.original.id}`}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Interview prep for ${row.original.company}`}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <GraduationCap className="size-3" aria-hidden />
+            prep
+          </Link>
+        ),
       },
     ],
     [],

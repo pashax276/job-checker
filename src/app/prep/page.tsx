@@ -10,7 +10,8 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
@@ -26,6 +27,7 @@ import { splitPrepNotes } from "@/lib/prep-notes";
 import { parseStoredSkillMatch } from "@/lib/skill-match";
 import type { Status } from "@/lib/constants";
 import type { Job } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface BookedStep {
   jobId: string;
@@ -124,12 +126,14 @@ function PrepCard({
   onOpen,
   past,
   aiEnabled,
+  highlighted,
 }: {
   step: BookedStep;
   jobs: Job[];
   onOpen: (id: string) => void;
   past?: boolean;
   aiEnabled?: boolean;
+  highlighted?: boolean;
 }) {
   const qc = useQueryClient();
   const todayIso = toLocalIsoDate(new Date());
@@ -187,7 +191,13 @@ function PrepCard({
   });
 
   return (
-    <Card className={past ? "opacity-70" : undefined}>
+    <Card
+      data-job-id={step.jobId}
+      className={cn(
+        past && "opacity-70",
+        highlighted && "ring-2 ring-primary transition-shadow",
+      )}
+    >
       <CardHeader className="flex-row items-center gap-3 pb-2">
         <div className="w-24 shrink-0">
           <div className="font-data text-xs text-muted-foreground">
@@ -436,7 +446,9 @@ function PrepNotes({
   );
 }
 
-export default function PrepPage() {
+function PrepView() {
+  const searchParams = useSearchParams();
+  const jobParam = searchParams.get("job");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: steps, isLoading } = useQuery({
     queryKey: ["schedule"],
@@ -448,6 +460,15 @@ export default function PrepPage() {
   });
   const { data: aiStatus } = useAiStatus();
 
+  // Deep link from Table/Board's "prep" action: scroll the linked job's
+  // card into view once its data (and the DOM node) exist.
+  useEffect(() => {
+    if (!jobParam || !steps?.some((s) => s.jobId === jobParam)) return;
+    document
+      .querySelector(`[data-job-id="${jobParam}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [jobParam, steps]);
+
   if (isLoading || !steps) {
     return <div className="p-6 text-sm text-muted-foreground">Loading prep…</div>;
   }
@@ -457,6 +478,10 @@ export default function PrepPage() {
   const pastSteps = steps
     .filter((s) => s.scheduledFor < todayIso)
     .reverse();
+  const linkedJobWithoutStep =
+    jobParam && !steps.some((s) => s.jobId === jobParam)
+      ? (jobs ?? []).find((j) => j.id === jobParam)
+      : undefined;
 
   return (
     <div className="max-w-6xl space-y-4 p-4">
@@ -473,6 +498,24 @@ export default function PrepPage() {
         </div>
       </header>
 
+      {linkedJobWithoutStep ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+          <p className="min-w-0">
+            Nothing booked yet for{" "}
+            <span className="font-medium">{linkedJobWithoutStep.company}</span>{" "}
+            — {linkedJobWithoutStep.role}. Book a stage date to start a prep
+            workspace for it.
+          </p>
+          <Button
+            size="sm"
+            className="h-7 shrink-0 text-xs"
+            onClick={() => setSelectedId(linkedJobWithoutStep.id)}
+          >
+            Open job
+          </Button>
+        </div>
+      ) : null}
+
       {upcoming.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nothing booked ahead. When you schedule a screen or interview on a
@@ -487,6 +530,7 @@ export default function PrepPage() {
               jobs={jobs ?? []}
               onOpen={setSelectedId}
               aiEnabled={aiStatus?.enabled}
+              highlighted={step.jobId === jobParam}
             />
           ))}
         </div>
@@ -506,6 +550,7 @@ export default function PrepPage() {
                 onOpen={setSelectedId}
                 past
                 aiEnabled={aiStatus?.enabled}
+                highlighted={step.jobId === jobParam}
               />
             ))}
           </div>
@@ -514,5 +559,17 @@ export default function PrepPage() {
 
       <JobDrawer jobId={selectedId} onClose={() => setSelectedId(null)} />
     </div>
+  );
+}
+
+export default function PrepPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading prep…</div>
+      }
+    >
+      <PrepView />
+    </Suspense>
   );
 }

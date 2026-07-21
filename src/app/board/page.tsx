@@ -11,7 +11,8 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Columns, FileDown, Radar, Rows3 } from "lucide-react";
+import { Columns, FileDown, GraduationCap, Radar, Rows3 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DueBadge, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
@@ -65,6 +66,7 @@ function JobCard({
   compact?: boolean;
   agingDays?: number;
 }) {
+  const router = useRouter();
   const due = isFollowUpDue(job.followUpDate, new Date());
   const threshold = WIP_THRESHOLDS[job.status];
   const stale =
@@ -115,6 +117,26 @@ function JobCard({
           {job.company}
         </span>
         {sourceIcon}
+        {/* span, not a nested <a>/<button> — the card itself is a <button> */}
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`Interview prep for ${job.company}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/prep?job=${job.id}`);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`/prep?job=${job.id}`);
+            }
+          }}
+          className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
+        >
+          <GraduationCap className="size-3" aria-hidden />
+        </span>
       </span>
       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
         {job.role}

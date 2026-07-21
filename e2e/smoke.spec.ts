@@ -71,6 +71,35 @@ test.describe("smoke", () => {
     ).toHaveCount(1);
   });
 
+  test("table row's prep link deep-links into the Prep page", async ({
+    page,
+  }) => {
+    await page.goto("/table");
+    const row = page.getByRole("row").filter({ hasText: "Platform Science" });
+    await row.getByRole("link", { name: /interview prep/i }).click();
+    await expect(page).toHaveURL(/\/prep\?job=/);
+    // seed data books no stage schedules, so the deep link lands on the
+    // "nothing booked yet" banner rather than a prep card
+    await expect(page.getByText(/Nothing booked yet for/)).toBeVisible();
+    await expect(page.getByText("Platform Science")).toBeVisible();
+    await page.getByRole("button", { name: "Open job" }).click();
+    await expect(page.getByText("Timeline", { exact: true })).toBeVisible();
+  });
+
+  test("board card's prep icon deep-links into the Prep page", async ({
+    page,
+  }) => {
+    await page.goto("/board");
+    await page
+      .getByRole("button", {
+        name: "Interview prep for Platform Science",
+        exact: true,
+      })
+      .click();
+    await expect(page).toHaveURL(/\/prep\?job=/);
+    await expect(page.getByText(/Nothing booked yet for/)).toBeVisible();
+  });
+
   test("inline status change persists across reload", async ({ page }) => {
     await page.goto("/table");
     const row = page.getByRole("row").filter({ hasText: "Platform Science" });

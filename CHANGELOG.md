@@ -4,6 +4,15 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.3.0] - 2026-07-21
+
+### Added
+- Table rows and Board cards now have a "prep" link/icon that deep-links
+  into `/prep?job=<id>`, scrolling to and highlighting that job's booked
+  step if one exists. If nothing's booked yet, the Prep page shows an
+  inline banner ("Nothing booked yet for X — Y") with a button straight
+  to that job's drawer instead of a dead end.
+
 ## [1.2.1] - 2026-07-21
 
 ### Fixed
