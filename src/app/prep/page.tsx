@@ -138,6 +138,10 @@ function PrepCard({
     ? (parseStoredSkillMatch(job.skillMatch)?.missing ?? [])
     : [];
   const { sidebar } = splitPrepNotes(step.prepNotes ?? "");
+  // Owned here (not inside PrepNotes) so the rail's "Questions to ask"
+  // section — which is the same underlying text, just rendered in a
+  // different spot — can also open the same editor.
+  const [editingNotes, setEditingNotes] = useState(() => !step.prepNotes?.trim());
 
   const save = useMutation({
     mutationFn: (prepNotes: string | null) =>
@@ -272,6 +276,8 @@ function PrepCard({
             key={`${step.prepNotes?.length ?? 0}`}
             initial={step.prepNotes ?? ""}
             disabled={save.isPending}
+            editing={editingNotes}
+            onEditingChange={setEditingNotes}
             onSave={(text) => save.mutate(text || null)}
           />
         </div>
@@ -319,10 +325,24 @@ function PrepCard({
               </p>
             </div>
           ) : null}
-          {sidebar ? (
-            <div className="space-y-1">
+          {sidebar && !editingNotes ? (
+            <div className="group/sidebar space-y-1">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEditingNotes(true)}
+                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover/sidebar:opacity-100 hover:text-primary"
+                >
+                  <Pencil className="size-2.5" aria-hidden />
+                  Edit
+                </button>
+              </div>
               <PrepMarkdown text={sidebar} />
             </div>
+          ) : sidebar ? (
+            <p className="text-[10px] text-muted-foreground italic">
+              Editing — this section is part of the notes field on the left.
+            </p>
           ) : null}
         </aside>
       </CardContent>
@@ -333,16 +353,20 @@ function PrepCard({
 function PrepNotes({
   initial,
   disabled,
+  editing,
+  onEditingChange,
   onSave,
 }: {
   initial: string;
   disabled: boolean;
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
   onSave: (text: string) => void;
 }) {
   // Freshly-generated or pasted-in briefs are meant to be read, not edited —
-  // default to a rendered view and drop into the raw textarea on demand.
-  // Blank notes go straight to editing since there's nothing to read yet.
-  const [editing, setEditing] = useState(initial.trim().length === 0);
+  // default to a rendered view and drop into the raw textarea on demand
+  // (from here or from the rail's own Edit button — see PrepCard, since
+  // the "Questions to ask" section rendered there is this same text).
   const [value, setValue] = useState(initial);
   const dirty = value.trim() !== initial.trim();
 
@@ -356,7 +380,10 @@ function PrepNotes({
           size="sm"
           variant="ghost"
           className="absolute top-1.5 right-1.5 h-6 gap-1 text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={() => setEditing(true)}
+          onClick={() => {
+            setValue(initial);
+            onEditingChange(true);
+          }}
         >
           <Pencil className="size-3" aria-hidden />
           Edit
@@ -387,7 +414,7 @@ function PrepNotes({
             className="h-7 text-xs"
             onClick={() => {
               setValue(initial);
-              setEditing(false);
+              onEditingChange(false);
             }}
           >
             Cancel
@@ -399,7 +426,7 @@ function PrepNotes({
           disabled={disabled || !dirty}
           onClick={() => {
             onSave(value.trim());
-            setEditing(false);
+            onEditingChange(false);
           }}
         >
           Save notes

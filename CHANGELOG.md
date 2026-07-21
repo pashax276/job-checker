@@ -4,6 +4,20 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.2.1] - 2026-07-21
+
+### Fixed
+- The Prep rail's "Questions to ask" section had no visible way to edit
+  it — the only Edit button lived on the main notes block, and it wasn't
+  obvious that editing it also covers the rail content (same underlying
+  text, split for display only). Lifted the edit state up to the card
+  level so the rail gets its own Edit affordance that opens the same
+  shared editor; while editing, the rail shows a pointer back to the
+  notes field instead of stale rendered content.
+- That new rail Edit button initially overlapped the wrapped "Questions
+  to ask" heading text (absolute positioning collided with a two-line
+  heading) — moved it into its own in-flow row above the content.
+
 ## [1.2.0] - 2026-07-21
 
 ### Changed
