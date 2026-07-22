@@ -4,6 +4,21 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.4.2] - 2026-07-22
+
+### Fixed
+- Skill match scored 0% for every Ashby posting (and likely other
+  client-rendered ATS pages) — jobs.ashbyhq.com job pages are a React
+  SPA, so a plain HTTP fetch returned the "You need to enable
+  JavaScript to run this app." shell instead of the description,
+  reproduced live against a real Pano AI posting. Greenhouse, Lever,
+  and Ashby all expose a public JSON board API with the real
+  description text (the same one discovery already polls) — skill
+  match now tries that first, matching the posting by its stable
+  per-URL id, and only falls back to scraping the HTML page for
+  postings on platforms with no structured API (company career sites,
+  Workday).
+
 ## [1.4.1] - 2026-07-22
 
 ### Fixed

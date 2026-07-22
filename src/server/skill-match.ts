@@ -6,7 +6,8 @@ import {
   stripHtmlToText,
   type StoredSkillMatch,
 } from "@/lib/skill-match";
-import { DISCOVERY_USER_AGENT } from "@/server/discovery/ats";
+import { DISCOVERY_USER_AGENT, fetchBoard } from "@/server/discovery/ats";
+import { companySlugFromUrl, detectAtsType } from "@/server/discovery/rss";
 import { getDocument, listDocuments } from "@/server/documents";
 
 function resumeSkillsFor(db: DB, resumeId: string | null): string[] | null {
@@ -23,6 +24,72 @@ function resumeSkillsFor(db: DB, resumeId: string | null): string[] | null {
     if (skills.length > 0) return skills;
   }
   return null;
+}
+
+/** The trailing path segment is each ATS's stable per-posting identifier
+ * (Greenhouse's numeric id, Lever/Ashby's UUID) — comparing just that
+ * avoids fragile full-URL matching across query strings/trailing slashes. */
+function postingIdFromUrl(url: string): string | null {
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    return segments.at(-1) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Greenhouse/Lever/Ashby job pages are frequently client-rendered SPAs — a
+ * plain fetch gets an empty "enable JavaScript" shell, not the posting text.
+ * All three ATSes expose a public JSON board API (the same one discovery
+ * polls) that includes the full description; try that first and only fall
+ * back to scraping the HTML page for everything else (company career pages,
+ * Workday, etc., which this app has no structured API for).
+ */
+async function fetchViaAtsBoard(
+  postingUrl: string,
+  fetchFn: typeof fetch,
+): Promise<string | null> {
+  const atsType = detectAtsType(postingUrl);
+  if (atsType !== "greenhouse" && atsType !== "lever" && atsType !== "ashby") {
+    return null;
+  }
+  const slug = companySlugFromUrl(postingUrl);
+  if (!slug) return null;
+  const targetId = postingIdFromUrl(postingUrl);
+  try {
+    const candidates = await fetchBoard(atsType, slug, "", fetchFn);
+    const match = candidates.find(
+      (c) => c.description && postingIdFromUrl(c.url) === targetId,
+    );
+    return match?.description ? stripHtmlToText(match.description) : null;
+  } catch {
+    return null; // board API unreachable/shape changed — fall back to HTML
+  }
+}
+
+async function fetchPostingText(
+  postingUrl: string,
+  fetchFn: typeof fetch,
+): Promise<string> {
+  const viaBoard = await fetchViaAtsBoard(postingUrl, fetchFn);
+  if (viaBoard) return viaBoard;
+
+  const res = await fetchFn(postingUrl, {
+    headers: { "user-agent": DISCOVERY_USER_AGENT, accept: "text/html" },
+  });
+  if (!res.ok) {
+    // 401/403 are near-always the site's bot defenses (Coinbase and
+    // friends), not something retrying will fix — say so plainly instead
+    // of leaving a bare status code to puzzle over.
+    if ([401, 403].includes(res.status)) {
+      throw new Error(
+        `This posting page blocks automated fetches (${res.status}) — skill match can't read it. Paste the JD into notes instead.`,
+      );
+    }
+    throw new Error(`Posting fetch failed (${res.status})`);
+  }
+  return stripHtmlToText(await res.text());
 }
 
 /**
@@ -50,22 +117,7 @@ export async function refreshSkillMatch(
     throw new Error("Upload a resume with skills first (Resumes page)");
   }
 
-  const res = await fetchFn(job.postingUrl, {
-    headers: { "user-agent": DISCOVERY_USER_AGENT, accept: "text/html" },
-  });
-  if (!res.ok) {
-    // 401/403 are near-always the site's bot defenses (Coinbase and
-    // friends), not something retrying will fix — say so plainly instead
-    // of leaving a bare status code to puzzle over.
-    if ([401, 403].includes(res.status)) {
-      throw new Error(
-        `This posting page blocks automated fetches (${res.status}) — skill match can't read it. Paste the JD into notes instead.`,
-      );
-    }
-    throw new Error(`Posting fetch failed (${res.status})`);
-  }
-
-  const postingText = stripHtmlToText(await res.text());
+  const postingText = await fetchPostingText(job.postingUrl, fetchFn);
   const match: StoredSkillMatch = {
     ...computeSkillMatch(resumeSkills, postingText),
     checkedAt: now.toISOString(),
