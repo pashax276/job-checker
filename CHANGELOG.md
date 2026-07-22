@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.4.0] - 2026-07-21
+
+### Added
+- Import now accepts `.json` alongside `.xlsx`/`.csv` — a bare array (the
+  shape `GET /api/export?format=json` produces) or a `{ jobs: [...] }`
+  envelope (the seed file's shape). Each entry maps through the same
+  `jobToTrackerRow()` column mapping xlsx/csv export uses, so duplicate
+  detection (company + role, case-insensitive) behaves identically
+  across all three formats — no separate ID-based matching path.
+
 ## [1.3.1] - 2026-07-21
 
 ### Fixed

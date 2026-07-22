@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { apiError, apiOk, apiZodError } from "@/lib/api-response";
 import { parseCsv } from "@/lib/csv";
 import { buildImportPreview, type ImportPreviewRow } from "@/lib/import";
+import { parseJsonImport } from "@/lib/json-import";
 import { jobPatchSchema, listQuerySchema } from "@/lib/schemas";
 import { parseTrackerWorkbook, type TrackerRow } from "@/lib/xlsx";
 import { createJob, listJobs, updateJob } from "@/server/jobs";
@@ -33,7 +34,10 @@ async function rowsFromFile(file: File): Promise<TrackerRow[]> {
     );
     return rows;
   }
-  throw new Error("Unsupported file type: upload .xlsx or .csv");
+  if (name.endsWith(".json")) {
+    return parseJsonImport(await file.text());
+  }
+  throw new Error("Unsupported file type: upload .xlsx, .csv, or .json");
 }
 
 export async function POST(request: Request): Promise<Response> {

@@ -104,6 +104,30 @@ describe("POST /api/import", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("accepts a .json upload, using the same company+role dedupe as csv/xlsx", async () => {
+    createJob(
+      getDb(),
+      jobCreateSchema.parse({ company: "Acme", role: "Senior SRE" }),
+    );
+    const json = JSON.stringify([
+      { company: "ACME", role: "senior sre" },
+      { company: "NewCo", role: "Platform Engineer" },
+    ]);
+    const form = new FormData();
+    form.set("file", new File([json], "export.json", { type: "application/json" }));
+    form.set("mode", "preview");
+    const res = await importRoute.POST(
+      new Request("http://test/api/import", { method: "POST", body: form }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<{
+      rows: Array<{ duplicateOfId: string | null; error: string | null }>;
+    }>;
+    expect(body.data.rows).toHaveLength(2);
+    expect(body.data.rows[0].duplicateOfId).not.toBeNull();
+    expect(body.data.rows[1].duplicateOfId).toBeNull();
+  });
 });
 
 describe("GET /api/export", () => {

@@ -8,6 +8,7 @@ import {
   trackerRowToJobInput,
 } from "@/lib/import";
 import { buildTrackerWorkbook, parseTrackerWorkbook } from "@/lib/xlsx";
+import { parseJsonImport } from "@/lib/json-import";
 import type { Job } from "@/lib/types";
 
 const job = (over: Partial<Job>): Job => ({
@@ -95,6 +96,64 @@ describe("csv round-trip", () => {
       "https://boards.greenhouse.io/platformscience/jobs/1",
     );
     expect(rows[1].Company).toBe("Babylist");
+  });
+});
+
+describe("json import", () => {
+  it("maps a bare Job[] array (the /api/export?format=json shape) into tracker rows", () => {
+    const jobs = [
+      job({ company: "Platform Science", role: "Senior Platform Engineer" }),
+      job({ id: "job-002", company: "Babylist", role: "Staff SRE" }),
+    ];
+    const rows = parseJsonImport(JSON.stringify(jobs));
+    expect(rows).toHaveLength(2);
+    expect(rows[0].Company).toBe("Platform Science");
+    expect(rows[1].Company).toBe("Babylist");
+  });
+
+  it("accepts a { jobs: [...] } envelope (the seed file shape)", () => {
+    const jobs = [job({ company: "Envelope Co", role: "SRE" })];
+    const rows = parseJsonImport(
+      JSON.stringify({ exportedAt: "2026-07-21", jobs }),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].Company).toBe("Envelope Co");
+  });
+
+  it("composes structured comp fields into the Comp Notes column, same as xlsx/csv", () => {
+    const jobs = [
+      job({
+        company: "Acme",
+        role: "SRE",
+        compBase: "$170k",
+        compBonus: "10%",
+        compNotes: "sign-on bonus",
+      }),
+    ];
+    const rows = parseJsonImport(JSON.stringify(jobs));
+    expect(rows[0]["Comp Notes"]).toBe(
+      "base $170k · bonus 10% · sign-on bonus",
+    );
+  });
+
+  it("rejects invalid JSON", () => {
+    expect(() => parseJsonImport("{not json")).toThrow(/not valid json/i);
+  });
+
+  it("rejects valid JSON that isn't an array or a jobs envelope", () => {
+    expect(() => parseJsonImport(JSON.stringify({ foo: "bar" }))).toThrow(
+      /expected a json array/i,
+    );
+  });
+
+  it("flows into buildImportPreview with the same company+role dedupe as xlsx/csv", () => {
+    const jobs = [job({ company: "Acme", role: "Senior SRE" })];
+    const rows = parseJsonImport(JSON.stringify(jobs));
+    const existing = [
+      { id: "existing-1", company: "acme", role: "SENIOR sre" },
+    ];
+    const preview = buildImportPreview(rows, existing);
+    expect(preview[0].duplicateOfId).toBe("existing-1");
   });
 });
 

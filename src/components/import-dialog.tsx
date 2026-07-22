@@ -104,8 +104,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
         <DialogHeader>
           <DialogTitle>Import jobs</DialogTitle>
           <DialogDescription>
-            Upload an .xlsx or .csv in the original tracker column layout.
-            Duplicates match on company + role (case-insensitive).
+            Upload an .xlsx or .csv in the original tracker column layout, or
+            a .json export (bare array or a &quot;jobs&quot; envelope).
+            Duplicates match on company + role (case-insensitive), regardless
+            of format.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +116,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx,.csv"
+              accept=".xlsx,.csv,.json"
               className="hidden"
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);

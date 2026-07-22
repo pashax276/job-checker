@@ -101,7 +101,7 @@ boundary.
 ```
 GET/POST      /api/jobs           list (status, tier, q, dueOnly) / create
 GET/PATCH/DEL /api/jobs/:id       detail incl. statusHistory / partial update / delete
-POST          /api/import         multipart xlsx|csv, mode=preview|commit + per-row decisions
+POST          /api/import         multipart xlsx|csv|json, mode=preview|commit + per-row decisions
 GET           /api/export         ?format=xlsx|csv|json  GET /api/export/ics
 GET           /api/stats          dashboard aggregates
 GET/POST      /api/watchlist      PATCH/DELETE /api/watchlist/:id
