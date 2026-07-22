@@ -325,6 +325,11 @@ function SkillMatchSection({ job }: { job: JobDetail }) {
           variant="outline"
           className="h-6 text-[10px]"
           disabled={refreshSkillMatch.isPending || !job.postingUrl}
+          title={
+            job.postingUrl
+              ? undefined
+              : "Add a posting URL first — skill match fetches and reads that page"
+          }
           onClick={() => refreshSkillMatch.mutate()}
         >
           {refreshSkillMatch.isPending
@@ -334,6 +339,12 @@ function SkillMatchSection({ job }: { job: JobDetail }) {
               : "Check match"}
         </Button>
       </div>
+      {!job.postingUrl ? (
+        <p className="text-[10px] text-muted-foreground">
+          Add a posting URL above to enable skill match — it fetches and
+          reads that page.
+        </p>
+      ) : null}
       {match ? (
         <>
           <div className="flex flex-wrap gap-1">

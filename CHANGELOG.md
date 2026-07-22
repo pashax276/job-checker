@@ -4,6 +4,24 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.4.1] - 2026-07-22
+
+### Fixed
+- Skill match's "Check match" button was silently disabled whenever a job
+  had no posting URL — no tooltip, no hint, nothing to explain why
+  clicking it did nothing. Added a `title` and an inline note pointing
+  at the posting URL field.
+- A posting site blocking automated fetches (Coinbase returns 403; this
+  is expected, not a bug) surfaced as a bare "Posting fetch failed
+  (403)" toast. 401/403 now explain what's actually happening and
+  suggest pasting the JD into notes instead.
+
+Found investigating a report that skill match "does not work" after
+adding a resume — reproduced against real data: it actually worked
+correctly for jobs with a reachable posting URL (Babylist scored 55%
+live), the failure was specific to jobs missing a posting URL or whose
+posting page blocks scraping.
+
 ## [1.4.0] - 2026-07-21
 
 ### Added

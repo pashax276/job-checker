@@ -53,7 +53,17 @@ export async function refreshSkillMatch(
   const res = await fetchFn(job.postingUrl, {
     headers: { "user-agent": DISCOVERY_USER_AGENT, accept: "text/html" },
   });
-  if (!res.ok) throw new Error(`Posting fetch failed (${res.status})`);
+  if (!res.ok) {
+    // 401/403 are near-always the site's bot defenses (Coinbase and
+    // friends), not something retrying will fix — say so plainly instead
+    // of leaving a bare status code to puzzle over.
+    if ([401, 403].includes(res.status)) {
+      throw new Error(
+        `This posting page blocks automated fetches (${res.status}) — skill match can't read it. Paste the JD into notes instead.`,
+      );
+    }
+    throw new Error(`Posting fetch failed (${res.status})`);
+  }
 
   const postingText = stripHtmlToText(await res.text());
   const match: StoredSkillMatch = {

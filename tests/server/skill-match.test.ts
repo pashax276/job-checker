@@ -123,4 +123,37 @@ describe("refreshSkillMatch", () => {
       /403/,
     );
   });
+
+  it("names bot-blocking status codes explicitly, not just the number", async () => {
+    await makeResume();
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({
+        company: "Coinbase",
+        role: "R",
+        postingUrl: "https://coinbase.com/careers/positions/1",
+      }),
+    );
+    await expect(
+      refreshSkillMatch(db, job.id, fakeFetch("", 403)),
+    ).rejects.toThrow(/blocks automated fetches/i);
+    await expect(
+      refreshSkillMatch(db, job.id, fakeFetch("", 401)),
+    ).rejects.toThrow(/blocks automated fetches/i);
+  });
+
+  it("leaves other fetch failures with the plain status message", async () => {
+    await makeResume();
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({
+        company: "A",
+        role: "R",
+        postingUrl: "https://example.com/jd",
+      }),
+    );
+    await expect(
+      refreshSkillMatch(db, job.id, fakeFetch("", 500)),
+    ).rejects.toThrow("Posting fetch failed (500)");
+  });
 });
