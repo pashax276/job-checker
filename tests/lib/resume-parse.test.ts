@@ -112,6 +112,17 @@ describe("extractSkills", () => {
     expect(extractSkills("Wrote services in Go")).toContain("Go");
   });
 
+  it("does not mistake the common verb 'go' for the Go language", () => {
+    // Reproduces a real false positive: this exact phrase, lifted from a
+    // live job posting, scored "Go" as a skill the JD asked for.
+    expect(
+      extractSkills("You told something is broken. You go look."),
+    ).not.toContain("Go");
+    expect(extractSkills("let's go build something great")).not.toContain(
+      "Go",
+    );
+  });
+
   it("dedupes repeated mentions", () => {
     const skills = extractSkills("AWS aws AWS");
     expect(skills.filter((s) => s === "AWS")).toHaveLength(1);

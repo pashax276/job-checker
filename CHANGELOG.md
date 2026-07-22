@@ -4,6 +4,25 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.5.0] - 2026-07-22
+
+### Added
+- Board tiles show the skill-match percentage (same color thresholds as
+  the drawer: green ≥ 70%, amber ≥ 40%, red below) — but only once a
+  check has actually run, so untested jobs don't clutter every tile
+  with a placeholder.
+
+### Fixed
+- Skill extraction matched "Go" the language case-insensitively, so the
+  extremely common English verb "go" (as in "You go look") registered
+  as a JD skill mention — reproduced against Incode Technologies' real
+  posting, where "Go" showed up as "missing" purely from ordinary
+  prose, not an actual language requirement. "Go" now matches
+  case-sensitively; real usage ("Go", "Golang") is capitalized, the
+  false-positive verb is almost always lowercase mid-sentence. Not a
+  complete fix — a sentence starting "Go build..." would still
+  collide — but it removes the common case.
+
 ## [1.4.2] - 2026-07-22
 
 ### Fixed

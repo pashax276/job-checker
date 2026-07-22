@@ -75,10 +75,19 @@ export const SKILL_DICTIONARY = [
   "Observability", "Networking", "Security", "Cost Optimization",
 ] as const;
 
+// "Go" the language collides with "go" the extremely common English verb
+// ("you go look", "let's go") — case-insensitive matching flagged plain
+// prose as a skill mention. Matched case-sensitively instead: real usage
+// ("Go", "Golang") is capitalized; the false-positive verb is almost
+// always lowercase mid-sentence. Not a complete fix (a sentence starting
+// "Go build..." still collides), but it removes the common case.
+const CASE_SENSITIVE_SKILLS = new Set(["Go"]);
+
 function skillPattern(skill: string): RegExp {
   const escaped = skill.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  const flags = CASE_SENSITIVE_SKILLS.has(skill) ? "" : "i";
   // \b fails around symbols like "CI/CD"; use explicit non-word lookarounds.
-  return new RegExp(`(?<![\\w])${escaped}(?![\\w])`, "i");
+  return new RegExp(`(?<![\\w])${escaped}(?![\\w])`, flags);
 }
 
 /** Dictionary skills present in the text, canonical casing, deduped. */

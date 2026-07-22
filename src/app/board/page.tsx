@@ -27,6 +27,7 @@ import { useJobs, useStats, useUpdateJob } from "@/hooks/use-jobs";
 import { composeComp } from "@/lib/comp";
 import { STATUSES, type Status } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
+import { parseStoredSkillMatch } from "@/lib/skill-match";
 import type { Job } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +72,7 @@ function JobCard({
   const threshold = WIP_THRESHOLDS[job.status];
   const stale =
     agingDays !== undefined && threshold !== undefined && agingDays >= threshold;
+  const match = parseStoredSkillMatch(job.skillMatch);
   const sourceIcon =
     job.source === "discovery" ? (
       <Radar
@@ -150,6 +152,21 @@ function JobCard({
             className="font-data inline-flex items-center rounded-sm border border-status-assessment/40 bg-status-assessment/10 px-1 text-[10px] text-status-assessment"
           >
             {agingDays}d
+          </span>
+        ) : null}
+        {match ? (
+          <span
+            title={`Skill match ${Math.round(match.score * 100)}% vs posting`}
+            className={cn(
+              "font-data inline-flex items-center rounded-sm border px-1 text-[10px]",
+              match.score >= 0.7
+                ? "border-status-offer/40 bg-status-offer/10 text-status-offer"
+                : match.score >= 0.4
+                  ? "border-status-assessment/40 bg-status-assessment/10 text-status-assessment"
+                  : "border-due/40 bg-due/10 text-due",
+            )}
+          >
+            {Math.round(match.score * 100)}%
           </span>
         ) : null}
         {composeComp(job) ? (
