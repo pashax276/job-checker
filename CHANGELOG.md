@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.6.2] - 2026-07-23
+
+### Fixed
+- The shared `Dialog` and `Sheet` primitives had no horizontal overflow
+  clipping — any content wider than the dialog (the Import preview
+  table, and anything similar in Add job or the job drawer) visually
+  bled out past the rounded border while the border itself stayed put.
+  Root-caused to `src/components/ui/dialog.tsx` and `sheet.tsx` having
+  no `overflow` set at all; fixed once at the shared-component level
+  (`overflow-x-hidden overflow-y-auto`) rather than patching each
+  dialog individually, since the same gap affected Import, Add job, and
+  the job drawer alike.
+
 ## [1.6.1] - 2026-07-22
 
 ### Fixed
