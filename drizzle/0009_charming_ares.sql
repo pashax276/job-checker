@@ -1,0 +1,1 @@
+ALTER TABLE `stage_schedule` ADD `questions` text;

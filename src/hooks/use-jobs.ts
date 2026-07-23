@@ -8,6 +8,8 @@ import {
 import { useRef } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import type { Status } from "@/lib/constants";
+import type { PrepQuestion } from "@/lib/prep-notes";
 import type { Job, JobDetail, JobsQuery, Stats } from "@/lib/types";
 
 export const jobKeys = {
@@ -196,6 +198,63 @@ export function useJobExtras(jobId: string | null) {
     clearSchedule,
     refreshSkillMatch,
   };
+}
+
+/** Structured "questions to ask" CRUD for one booked step — Prep's Agenda
+ * view. Reads live on the ["schedule"] list key, so mutations invalidate
+ * that rather than a single job's detail. */
+export function usePrepQuestions(jobId: string, stage: Status) {
+  const qc = useQueryClient();
+  const refresh = () => void qc.invalidateQueries({ queryKey: ["schedule"] });
+  const onError = (err: Error) => toast.error(err.message);
+
+  const addQuestion = useMutation({
+    mutationFn: (text: string) =>
+      api<PrepQuestion[]>(`/api/jobs/${jobId}/schedule/questions`, {
+        method: "POST",
+        body: JSON.stringify({ stage, text }),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+  const updateQuestion = useMutation({
+    mutationFn: ({
+      questionId,
+      ...patch
+    }: {
+      questionId: string;
+      text?: string;
+      response?: string | null;
+    }) =>
+      api<PrepQuestion[]>(`/api/jobs/${jobId}/schedule/questions`, {
+        method: "PATCH",
+        body: JSON.stringify({ stage, questionId, ...patch }),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+  const removeQuestion = useMutation({
+    mutationFn: (questionId: string) =>
+      api<PrepQuestion[]>(
+        `/api/jobs/${jobId}/schedule/questions?stage=${encodeURIComponent(
+          stage,
+        )}&questionId=${encodeURIComponent(questionId)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: refresh,
+    onError,
+  });
+  const importQuestions = useMutation({
+    mutationFn: (texts: string[]) =>
+      api<PrepQuestion[]>(`/api/jobs/${jobId}/schedule/questions`, {
+        method: "PUT",
+        body: JSON.stringify({ stage, texts }),
+      }),
+    onSuccess: refresh,
+    onError,
+  });
+
+  return { addQuestion, updateQuestion, removeQuestion, importQuestions };
 }
 
 export function useAiStatus() {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitPrepNotes } from "@/lib/prep-notes";
+import { extractQuestionsFromMarkdown, splitPrepNotes } from "@/lib/prep-notes";
 
 describe("splitPrepNotes", () => {
   it("returns the whole text as main with no sidebar when there is no heading", () => {
@@ -36,5 +36,51 @@ describe("splitPrepNotes", () => {
     const { main, sidebar } = splitPrepNotes(text);
     expect(main).toBe("Intro.");
     expect(sidebar).toBe("## Questions to ask\n\nWhy this role?");
+  });
+});
+
+describe("extractQuestionsFromMarkdown", () => {
+  it("pulls numbered list items out of the questions section", () => {
+    const sidebar = [
+      "## Questions to ask him (aim for 6–8)",
+      "1. Is this role remote, or based in Dallas?",
+      "2. Who else is currently on infrastructure?",
+      "3. What triggered this hire now?",
+    ].join("\n");
+    expect(extractQuestionsFromMarkdown(sidebar)).toEqual([
+      "Is this role remote, or based in Dallas?",
+      "Who else is currently on infrastructure?",
+      "What triggered this hire now?",
+    ]);
+  });
+
+  it("stops at the next heading — a trailing Reminders section isn't a question", () => {
+    const sidebar = [
+      "## Questions to ask",
+      "1. Why this role?",
+      "2. What's the timeline?",
+      "",
+      "## REMINDERS",
+      "- Purpose is information-gathering.",
+      "- Two anchor stories, hold comp until he moves first.",
+    ].join("\n");
+    expect(extractQuestionsFromMarkdown(sidebar)).toEqual([
+      "Why this role?",
+      "What's the timeline?",
+    ]);
+  });
+
+  it("accepts '1)' style numbering too", () => {
+    const sidebar = "## Questions to ask\n1) First one\n2) Second one";
+    expect(extractQuestionsFromMarkdown(sidebar)).toEqual([
+      "First one",
+      "Second one",
+    ]);
+  });
+
+  it("returns an empty array when there are no numbered items", () => {
+    expect(extractQuestionsFromMarkdown("## Questions to ask\nJust prose.")).toEqual(
+      [],
+    );
   });
 });

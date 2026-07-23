@@ -3,6 +3,12 @@ export interface PrepNotesSplit {
   sidebar: string | null;
 }
 
+export interface PrepQuestion {
+  id: string;
+  text: string;
+  response: string | null;
+}
+
 const QUESTIONS_TO_ASK_HEADING = /^#{1,6}\s*.*questions?\s+to\s+ask.*$/im;
 
 /**
@@ -21,4 +27,26 @@ export function splitPrepNotes(text: string): PrepNotesSplit {
     main: text.slice(0, match.index).trim(),
     sidebar: text.slice(match.index).trim(),
   };
+}
+
+/**
+ * Pulls numbered-list question text out of a "Questions to ask" markdown
+ * section (the sidebar half of splitPrepNotes), stopping at the next
+ * heading — AI-generated briefs often follow with a "## Reminders"
+ * section that isn't part of the question list. Used to one-time-seed
+ * structured question records from free-text notes.
+ */
+export function extractQuestionsFromMarkdown(sidebar: string): string[] {
+  const withoutHeading = sidebar.replace(QUESTIONS_TO_ASK_HEADING, "").trim();
+  const nextHeading = withoutHeading.match(/^#{1,6}\s+/m);
+  const section =
+    nextHeading?.index !== undefined
+      ? withoutHeading.slice(0, nextHeading.index)
+      : withoutHeading;
+  const items: string[] = [];
+  for (const line of section.split("\n")) {
+    const m = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (m) items.push(m[1].trim());
+  }
+  return items;
 }

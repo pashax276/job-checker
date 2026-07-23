@@ -3,6 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { jobs, stageSchedule, type StageScheduleRecord } from "@/db/schema";
 import type { Status } from "@/lib/constants";
+import type { PrepQuestion } from "@/lib/prep-notes";
 
 export interface ScheduleWithJob {
   jobId: string;
@@ -11,9 +12,20 @@ export interface ScheduleWithJob {
   stage: string;
   scheduledFor: string;
   prepNotes: string | null;
+  questions: PrepQuestion[];
   outcome: string | null;
   status: string;
   postingUrl: string | null;
+}
+
+export function parseQuestions(raw: string | null): PrepQuestion[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PrepQuestion[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Every booked step joined with its job — ICS calendar and the Prep page. */
@@ -26,6 +38,7 @@ export function listAllSchedules(db: DB): ScheduleWithJob[] {
       stage: stageSchedule.stage,
       scheduledFor: stageSchedule.scheduledFor,
       prepNotes: stageSchedule.prepNotes,
+      questions: stageSchedule.questions,
       outcome: stageSchedule.outcome,
       status: jobs.status,
       postingUrl: jobs.postingUrl,
@@ -33,7 +46,8 @@ export function listAllSchedules(db: DB): ScheduleWithJob[] {
     .from(stageSchedule)
     .innerJoin(jobs, eq(stageSchedule.jobId, jobs.id))
     .orderBy(asc(stageSchedule.scheduledFor))
-    .all();
+    .all()
+    .map((row) => ({ ...row, questions: parseQuestions(row.questions) }));
 }
 
 export function listSchedule(db: DB, jobId: string): StageScheduleRecord[] {
@@ -60,12 +74,15 @@ export function upsertStageSchedule(
     scheduledFor,
     prepNotes: prepNotes ?? null,
     outcome: null,
+    questions: null,
   };
   db.insert(stageSchedule)
     .values(record)
     .onConflictDoUpdate({
       target: [stageSchedule.jobId, stageSchedule.stage],
-      // prepNotes only overwritten when the caller supplies it
+      // prepNotes only overwritten when the caller supplies it; questions
+      // is never touched here — rebooking a date must not wipe out
+      // already-captured Q&A.
       set: { scheduledFor, ...(prepNotes !== undefined ? { prepNotes } : {}) },
     })
     .run();
@@ -111,5 +128,100 @@ export function removeStageSchedule(
       .delete(stageSchedule)
       .where(and(eq(stageSchedule.jobId, jobId), eq(stageSchedule.stage, stage)))
       .run().changes > 0
+  );
+}
+
+function getScheduleRow(
+  db: DB,
+  jobId: string,
+  stage: Status,
+): StageScheduleRecord | null {
+  return (
+    db
+      .select()
+      .from(stageSchedule)
+      .where(and(eq(stageSchedule.jobId, jobId), eq(stageSchedule.stage, stage)))
+      .get() ?? null
+  );
+}
+
+function writeQuestions(
+  db: DB,
+  jobId: string,
+  stage: Status,
+  questions: PrepQuestion[],
+): PrepQuestion[] {
+  db.update(stageSchedule)
+    .set({ questions: JSON.stringify(questions) })
+    .where(and(eq(stageSchedule.jobId, jobId), eq(stageSchedule.stage, stage)))
+    .run();
+  return questions;
+}
+
+/**
+ * Replace the whole question list — used to one-time-seed structured
+ * questions from an AI-generated or pasted-in markdown brief.
+ */
+export function setQuestions(
+  db: DB,
+  jobId: string,
+  stage: Status,
+  questions: PrepQuestion[],
+): PrepQuestion[] {
+  if (!getScheduleRow(db, jobId, stage)) {
+    throw new Error(`No booked ${stage} step for this job`);
+  }
+  return writeQuestions(db, jobId, stage, questions);
+}
+
+export function addQuestion(
+  db: DB,
+  jobId: string,
+  stage: Status,
+  text: string,
+): PrepQuestion[] {
+  const row = getScheduleRow(db, jobId, stage);
+  if (!row) throw new Error(`No booked ${stage} step for this job`);
+  const question: PrepQuestion = { id: randomUUID(), text, response: null };
+  return writeQuestions(db, jobId, stage, [
+    ...parseQuestions(row.questions),
+    question,
+  ]);
+}
+
+export function updateQuestion(
+  db: DB,
+  jobId: string,
+  stage: Status,
+  questionId: string,
+  patch: { text?: string; response?: string | null },
+): PrepQuestion[] {
+  const row = getScheduleRow(db, jobId, stage);
+  if (!row) throw new Error(`No booked ${stage} step for this job`);
+  const questions = parseQuestions(row.questions);
+  if (!questions.some((q) => q.id === questionId)) {
+    throw new Error(`No question ${questionId} on this step`);
+  }
+  return writeQuestions(
+    db,
+    jobId,
+    stage,
+    questions.map((q) => (q.id === questionId ? { ...q, ...patch } : q)),
+  );
+}
+
+export function removeQuestion(
+  db: DB,
+  jobId: string,
+  stage: Status,
+  questionId: string,
+): PrepQuestion[] {
+  const row = getScheduleRow(db, jobId, stage);
+  if (!row) throw new Error(`No booked ${stage} step for this job`);
+  return writeQuestions(
+    db,
+    jobId,
+    stage,
+    parseQuestions(row.questions).filter((q) => q.id !== questionId),
   );
 }

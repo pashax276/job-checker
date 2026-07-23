@@ -125,4 +125,57 @@ test.describe("smoke", () => {
       .filter({ hasText: "Platform Science" });
     await expect(rowAfter.getByRole("combobox")).toContainText("Panel");
   });
+
+  test("Prep Agenda and Checklist views render a booked step with structured questions", async ({
+    page,
+    request,
+  }) => {
+    const jobsRes = await request.get("/api/jobs");
+    const jobs = (await jobsRes.json()).data as Array<{
+      id: string;
+      company: string;
+    }>;
+    const target = jobs.find((j) => j.company === "Platform Science")!;
+
+    await request.put(`/api/jobs/${target.id}/schedule`, {
+      data: { stage: "Screen", scheduledFor: "2026-08-01" },
+    });
+    await request.post(`/api/jobs/${target.id}/schedule/questions`, {
+      data: { stage: "Screen", text: "Is this remote?" },
+    });
+
+    await page.goto("/prep");
+    await page.getByRole("button", { name: "Agenda" }).click();
+    await expect(
+      page.getByText("Platform Science", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Is this remote?")).toBeVisible();
+
+    await page.getByRole("button", { name: "Checklist" }).click();
+    await expect(page.getByText("Questions prepared")).toBeVisible();
+  });
+
+  test("Resumes Split view and Coverage matrix render an uploaded resume", async ({
+    page,
+    request,
+  }) => {
+    await request.post("/api/documents", {
+      multipart: {
+        kind: "resume",
+        name: "E2E Resume",
+        file: {
+          name: "resume.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("AWS Kubernetes Terraform"),
+        },
+      },
+    });
+
+    await page.goto("/resumes");
+    await page.getByRole("button", { name: "Split view" }).click();
+    await expect(page.getByText("E2E Resume").first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Coverage matrix" }).click();
+    await expect(page.getByText(/no skill signal yet/i)).toBeVisible();
+  });
 });

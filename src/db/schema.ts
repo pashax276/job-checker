@@ -72,6 +72,10 @@ export const stageSchedule = sqliteTable(
     scheduledFor: text("scheduled_for").notNull(),
     prepNotes: text("prep_notes"),
     outcome: text("outcome"), // passed | failed | null = pending
+    // JSON array of { id, text, response } — structured "questions to ask"
+    // with room to log what they actually said, separate from prepNotes'
+    // free-text narrative brief.
+    questions: text("questions"),
   },
   (t) => [unique().on(t.jobId, t.stage)],
 );

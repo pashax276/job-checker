@@ -1,461 +1,52 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CalendarPlus,
-  ExternalLink,
-  GraduationCap,
-  Newspaper,
-  Pencil,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { GraduationCap } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { StatusBadge } from "@/components/badges";
+import { Suspense, useEffect, useState } from "react";
+import { AgendaView } from "@/app/prep/agenda-view";
+import { ChecklistView } from "@/app/prep/checklist-view";
+import { PrepCard } from "@/app/prep/prep-card";
+import type { BookedStep } from "@/app/prep/types";
 import { JobDrawer } from "@/components/job-drawer";
-import { PrepMarkdown } from "@/components/prep-markdown";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { useAiStatus } from "@/hooks/use-jobs";
 import { api } from "@/lib/api-client";
 import { toLocalIsoDate } from "@/lib/dates";
-import { buildTrackerCalendar } from "@/lib/ics";
-import { splitPrepNotes } from "@/lib/prep-notes";
-import { parseStoredSkillMatch } from "@/lib/skill-match";
-import type { Status } from "@/lib/constants";
 import type { Job } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-interface BookedStep {
-  jobId: string;
-  company: string;
-  role: string;
-  stage: Status;
-  scheduledFor: string;
-  prepNotes: string | null;
-  outcome: "passed" | "failed" | null;
-  status: Status;
-  postingUrl: string | null;
-}
+type ViewMode = "stack" | "agenda" | "checklist";
+const VIEW_MODES: Array<{ id: ViewMode; label: string }> = [
+  { id: "stack", label: "Stack" },
+  { id: "agenda", label: "Agenda" },
+  { id: "checklist", label: "Checklist" },
+];
 
-function fmtDay(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function countdown(iso: string, todayIso: string): string {
-  const diff = Math.round(
-    (new Date(`${iso}T12:00:00`).getTime() -
-      new Date(`${todayIso}T12:00:00`).getTime()) /
-      86_400_000,
-  );
-  if (diff === 0) return "today";
-  if (diff === 1) return "tomorrow";
-  if (diff > 1) return `in ${diff}d`;
-  return `${-diff}d ago`;
-}
-
-function downloadStepIcs(step: BookedStep) {
-  const ics = buildTrackerCalendar(
-    [],
-    [
-      {
-        jobId: step.jobId,
-        company: step.company,
-        role: step.role,
-        stage: step.stage,
-        scheduledFor: step.scheduledFor,
-      },
-    ],
-  );
-  const blob = new Blob([ics], { type: "text/calendar" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${step.company.replace(/\W+/g, "-")}-${step.stage.replace(/\W+/g, "-")}.ics`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function ResearchLinks({ company }: { company: string }) {
-  const q = encodeURIComponent(company);
-  const links = [
-    {
-      label: "News",
-      icon: Newspaper,
-      href: `https://news.google.com/search?q=${q}`,
-    },
-    {
-      label: "People",
-      icon: Users,
-      href: `https://www.linkedin.com/search/results/people/?keywords=${q}`,
-    },
-    {
-      label: "Reviews",
-      icon: ExternalLink,
-      href: `https://www.glassdoor.com/Search/results.htm?keyword=${q}`,
-    },
-  ];
+function ViewSwitcher({
+  view,
+  onChange,
+}: {
+  view: ViewMode;
+  onChange: (v: ViewMode) => void;
+}) {
   return (
-    <span className="flex items-center gap-1">
-      {links.map(({ label, icon: Icon, href }) => (
-        <a
-          key={label}
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-px text-[10px] text-muted-foreground transition-colors hover:border-ring/50 hover:text-foreground"
+    <div className="flex shrink-0 gap-0.5 rounded-md border p-0.5">
+      {VIEW_MODES.map((mode) => (
+        <button
+          key={mode.id}
+          type="button"
+          onClick={() => onChange(mode.id)}
+          className={cn(
+            "rounded-sm px-2 py-1 text-xs transition-colors",
+            view === mode.id
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
         >
-          <Icon className="size-2.5" aria-hidden />
-          {label}
-        </a>
+          {mode.label}
+        </button>
       ))}
-    </span>
-  );
-}
-
-function PrepCard({
-  step,
-  jobs,
-  onOpen,
-  past,
-  aiEnabled,
-  highlighted,
-}: {
-  step: BookedStep;
-  jobs: Job[];
-  onOpen: (id: string) => void;
-  past?: boolean;
-  aiEnabled?: boolean;
-  highlighted?: boolean;
-}) {
-  const qc = useQueryClient();
-  const todayIso = toLocalIsoDate(new Date());
-  const job = jobs.find((j) => j.id === step.jobId);
-  const missing = job
-    ? (parseStoredSkillMatch(job.skillMatch)?.missing ?? [])
-    : [];
-  const { sidebar } = splitPrepNotes(step.prepNotes ?? "");
-  // Owned here (not inside PrepNotes) so the rail's "Questions to ask"
-  // section — which is the same underlying text, just rendered in a
-  // different spot — can also open the same editor.
-  const [editingNotes, setEditingNotes] = useState(() => !step.prepNotes?.trim());
-
-  const save = useMutation({
-    mutationFn: (prepNotes: string | null) =>
-      api(`/api/jobs/${step.jobId}/schedule`, {
-        method: "PUT",
-        body: JSON.stringify({
-          stage: step.stage,
-          scheduledFor: step.scheduledFor,
-          prepNotes,
-        }),
-      }),
-    onSuccess: () => {
-      toast.success("Prep notes saved");
-      void qc.invalidateQueries({ queryKey: ["schedule"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const generateQuestions = useMutation({
-    mutationFn: () =>
-      api<{ text: string }>(`/api/jobs/${step.jobId}/ai`, {
-        method: "POST",
-        body: JSON.stringify({ kind: "prep", stage: step.stage }),
-      }),
-    onSuccess: ({ text }) => {
-      const merged = [step.prepNotes, text].filter(Boolean).join("\n\n---\n\n");
-      save.mutate(merged);
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const setOutcome = useMutation({
-    mutationFn: (outcome: "passed" | "failed" | null) =>
-      api(`/api/jobs/${step.jobId}/schedule`, {
-        method: "PATCH",
-        body: JSON.stringify({ stage: step.stage, outcome }),
-      }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["schedule"] });
-      void qc.invalidateQueries({ queryKey: ["stats"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  return (
-    <Card
-      data-job-id={step.jobId}
-      className={cn(
-        past && "opacity-70",
-        highlighted && "ring-2 ring-primary transition-shadow",
-      )}
-    >
-      <CardHeader className="flex-row items-center gap-3 pb-2">
-        <div className="w-24 shrink-0">
-          <div className="font-data text-xs text-muted-foreground">
-            {fmtDay(step.scheduledFor)}
-          </div>
-          <div
-            className={
-              step.scheduledFor === todayIso
-                ? "font-data text-xs font-semibold text-primary"
-                : "font-data text-xs text-muted-foreground"
-            }
-          >
-            {countdown(step.scheduledFor, todayIso)}
-          </div>
-        </div>
-        <StatusBadge status={step.stage} />
-        <CardTitle className="min-w-0 flex-1 truncate text-sm">
-          {step.company}
-          <span className="ml-2 font-normal text-muted-foreground">
-            {step.role}
-          </span>
-        </CardTitle>
-        {past ? (
-          <span className="flex shrink-0 gap-1">
-            <Button
-              size="sm"
-              variant={step.outcome === "passed" ? "default" : "outline"}
-              className="h-6 px-2 text-[10px]"
-              disabled={setOutcome.isPending}
-              onClick={() =>
-                setOutcome.mutate(step.outcome === "passed" ? null : "passed")
-              }
-            >
-              Passed
-            </Button>
-            <Button
-              size="sm"
-              variant={step.outcome === "failed" ? "destructive" : "outline"}
-              className="h-6 px-2 text-[10px]"
-              disabled={setOutcome.isPending}
-              onClick={() =>
-                setOutcome.mutate(step.outcome === "failed" ? null : "failed")
-              }
-            >
-              Failed
-            </Button>
-          </span>
-        ) : null}
-        {step.postingUrl ? (
-          <a
-            href={step.postingUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-muted-foreground hover:text-primary"
-            aria-label="Open posting"
-          >
-            <ExternalLink className="size-3.5" aria-hidden />
-          </a>
-        ) : null}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 text-xs"
-          onClick={() => onOpen(step.jobId)}
-        >
-          Open job
-        </Button>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_240px]">
-        <div className="min-w-0 space-y-2">
-          {aiEnabled ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 gap-1 text-[10px]"
-              disabled={generateQuestions.isPending}
-              onClick={() => generateQuestions.mutate()}
-            >
-              <Sparkles className="size-3" aria-hidden />
-              {generateQuestions.isPending
-                ? "Thinking…"
-                : "Generate likely questions (AI)"}
-            </Button>
-          ) : null}
-          <PrepNotes
-            key={`${step.prepNotes?.length ?? 0}`}
-            initial={step.prepNotes ?? ""}
-            disabled={save.isPending}
-            editing={editingNotes}
-            onEditingChange={setEditingNotes}
-            onSave={(text) => save.mutate(text || null)}
-          />
-        </div>
-        <aside className="space-y-3 lg:border-l lg:pl-4">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-              Research
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <ResearchLinks company={step.company} />
-              <button
-                type="button"
-                onClick={() => downloadStepIcs(step)}
-                className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-px text-[10px] text-muted-foreground transition-colors hover:border-ring/50 hover:text-foreground"
-              >
-                <CalendarPlus className="size-2.5" aria-hidden />
-                .ics
-              </button>
-            </div>
-          </div>
-          {job?.jdSnapshot ? (
-            <details>
-              <summary className="cursor-pointer text-[10px] font-medium tracking-wide text-primary uppercase hover:underline">
-                JD snapshot
-              </summary>
-              <p className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                {job.jdSnapshot}
-              </p>
-            </details>
-          ) : null}
-          {missing.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                Study up
-              </p>
-              <p className="flex flex-wrap items-center gap-1">
-                {missing.map((skill) => (
-                  <span
-                    key={skill}
-                    className="rounded-sm border border-status-assessment/40 bg-status-assessment/10 px-1 text-[10px] text-status-assessment"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </p>
-            </div>
-          ) : null}
-          {sidebar && !editingNotes ? (
-            <div className="group/sidebar space-y-1">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setEditingNotes(true)}
-                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover/sidebar:opacity-100 hover:text-primary"
-                >
-                  <Pencil className="size-2.5" aria-hidden />
-                  Edit
-                </button>
-              </div>
-              <PrepMarkdown text={sidebar} />
-            </div>
-          ) : sidebar ? (
-            <p className="text-[10px] text-muted-foreground italic">
-              Editing — this section is part of the notes field on the left.
-            </p>
-          ) : null}
-        </aside>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PrepNotes({
-  initial,
-  disabled,
-  editing,
-  onEditingChange,
-  onSave,
-}: {
-  initial: string;
-  disabled: boolean;
-  editing: boolean;
-  onEditingChange: (editing: boolean) => void;
-  onSave: (text: string) => void;
-}) {
-  // Freshly-generated or pasted-in briefs are meant to be read, not edited —
-  // default to a rendered view and drop into the raw textarea on demand
-  // (from here or from the rail's own Edit button — see PrepCard, since
-  // the "Questions to ask" section rendered there is this same text).
-  const [value, setValue] = useState(initial);
-  const dirty = value.trim() !== initial.trim();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Autofocus only a genuine user-triggered edit (clicking Edit, or a
-  // brand-new blank card), never the initial page-load mount — with many
-  // empty-notes cards on one page, every one defaulting to editing=true
-  // would otherwise fight for focus and the browser would auto-scroll to
-  // whichever mounted last, hiding whatever the user actually navigated to.
-  const skipNextAutoFocus = useRef(true);
-  useEffect(() => {
-    if (skipNextAutoFocus.current) {
-      skipNextAutoFocus.current = false;
-      return;
-    }
-    if (editing) textareaRef.current?.focus();
-  }, [editing]);
-
-  if (!editing) {
-    // The "Questions to ask" portion (if any) renders in the card's rail
-    // instead — see PrepCard — so only the main narrative goes here.
-    const { main } = splitPrepNotes(initial);
-    return (
-      <div className="group relative rounded-md border bg-muted/20 p-3">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="absolute top-1.5 right-1.5 h-6 gap-1 text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={() => {
-            setValue(initial);
-            onEditingChange(true);
-          }}
-        >
-          <Pencil className="size-3" aria-hidden />
-          Edit
-        </Button>
-        <PrepMarkdown text={main} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <Textarea
-        ref={textareaRef}
-        rows={4}
-        placeholder={
-          "Questions to ask, stories to have ready, topics to review…\n" +
-          "• Why this company / why now\n• STAR story for an incident\n• Their stack questions"
-        }
-        className="field-sizing-content min-h-24 resize-y text-sm"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <div className="flex justify-end gap-2">
-        {initial.trim().length > 0 ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs"
-            onClick={() => {
-              setValue(initial);
-              onEditingChange(false);
-            }}
-          >
-            Cancel
-          </Button>
-        ) : null}
-        <Button
-          size="sm"
-          className="h-7 text-xs"
-          disabled={disabled || !dirty}
-          onClick={() => {
-            onSave(value.trim());
-            onEditingChange(false);
-          }}
-        >
-          Save notes
-        </Button>
-      </div>
     </div>
   );
 }
@@ -464,6 +55,7 @@ function PrepView() {
   const searchParams = useSearchParams();
   const jobParam = searchParams.get("job");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("stack");
   const { data: steps, isLoading } = useQuery({
     queryKey: ["schedule"],
     queryFn: () => api<BookedStep[]>("/api/schedule"),
@@ -475,13 +67,15 @@ function PrepView() {
   const { data: aiStatus } = useAiStatus();
 
   // Deep link from Table/Board's "prep" action: scroll the linked job's
-  // card into view once its data (and the DOM node) exist.
+  // card into view once its data (and the DOM node) exist. Only relevant
+  // to Stack view — Agenda selects the job directly instead.
   useEffect(() => {
+    if (view !== "stack") return;
     if (!jobParam || !steps?.some((s) => s.jobId === jobParam)) return;
     document
       .querySelector(`[data-job-id="${jobParam}"]`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [jobParam, steps]);
+  }, [jobParam, steps, view]);
 
   if (isLoading || !steps) {
     return <div className="p-6 text-sm text-muted-foreground">Loading prep…</div>;
@@ -501,7 +95,7 @@ function PrepView() {
     <div className="max-w-6xl space-y-4 p-4">
       <header className="flex items-center gap-2">
         <GraduationCap className="size-4 text-muted-foreground" aria-hidden />
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-semibold tracking-tight">
             Interview prep
           </h1>
@@ -510,6 +104,7 @@ function PrepView() {
             Scheduled steps.
           </p>
         </div>
+        <ViewSwitcher view={view} onChange={setView} />
       </header>
 
       {linkedJobWithoutStep ? (
@@ -530,46 +125,64 @@ function PrepView() {
         </div>
       ) : null}
 
-      {upcoming.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nothing booked ahead. When you schedule a screen or interview on a
-          job, it appears here with room for prep notes.
-        </p>
+      {view === "agenda" ? (
+        <AgendaView
+          steps={[...upcoming, ...pastSteps]}
+          jobs={jobs ?? []}
+          aiEnabled={aiStatus?.enabled}
+          onOpen={setSelectedId}
+          highlightJobId={jobParam}
+        />
+      ) : view === "checklist" ? (
+        <ChecklistView
+          steps={upcoming}
+          jobs={jobs ?? []}
+          onOpen={setSelectedId}
+        />
       ) : (
-        <div className="space-y-3">
-          {upcoming.map((step) => (
-            <PrepCard
-              key={`${step.jobId}-${step.stage}`}
-              step={step}
-              jobs={jobs ?? []}
-              onOpen={setSelectedId}
-              aiEnabled={aiStatus?.enabled}
-              highlighted={step.jobId === jobParam}
-            />
-          ))}
-        </div>
-      )}
-
-      {pastSteps.length > 0 ? (
         <>
-          <h2 className="pt-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Past interviews
-          </h2>
-          <div className="space-y-3">
-            {pastSteps.map((step) => (
-              <PrepCard
-                key={`${step.jobId}-${step.stage}`}
-                step={step}
-                jobs={jobs ?? []}
-                onOpen={setSelectedId}
-                past
-                aiEnabled={aiStatus?.enabled}
-                highlighted={step.jobId === jobParam}
-              />
-            ))}
-          </div>
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing booked ahead. When you schedule a screen or interview
+              on a job, it appears here with room for prep notes.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {upcoming.map((step) => (
+                <PrepCard
+                  key={`${step.jobId}-${step.stage}`}
+                  step={step}
+                  jobs={jobs ?? []}
+                  onOpen={setSelectedId}
+                  aiEnabled={aiStatus?.enabled}
+                  highlighted={step.jobId === jobParam}
+                />
+              ))}
+            </div>
+          )}
+
+          {pastSteps.length > 0 ? (
+            <>
+              <h2 className="pt-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Past interviews
+              </h2>
+              <div className="space-y-3">
+                {pastSteps.map((step) => (
+                  <PrepCard
+                    key={`${step.jobId}-${step.stage}`}
+                    step={step}
+                    jobs={jobs ?? []}
+                    onOpen={setSelectedId}
+                    past
+                    aiEnabled={aiStatus?.enabled}
+                    highlighted={step.jobId === jobParam}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
         </>
-      ) : null}
+      )}
 
       <JobDrawer jobId={selectedId} onClose={() => setSelectedId(null)} />
     </div>

@@ -4,6 +4,37 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.6.0] - 2026-07-22
+
+### Added
+- **Structured interview questions**: "Questions to ask" is no longer
+  free-text markdown — each question is its own record with an editable
+  response field, so you can log what the interviewer actually said
+  next to the question you asked. Add/edit/remove questions inline; a
+  one-click "Import N from notes" seeds structured questions from an
+  AI-generated or pasted-in markdown brief the first time (`stageSchedule`
+  gained a `questions` JSON column).
+- **Prep page view modes** — Stack (unchanged card-per-step list),
+  **Agenda** (sidebar of booked steps + a detail pane for the selected
+  one, both sharing the same rail/questions UI as Stack), and
+  **Checklist** (per-interview prep-readiness: resume assigned, JD
+  snapshot saved, skill match checked, questions prepared — click any
+  unmet item to jump to the job).
+- **Resumes page view modes** — List (unchanged card grid), **Split
+  view** (compact sidebar + detail pane, each resume tagged with a
+  "N jobs · M/T skills" coverage badge), and **Coverage matrix** (every
+  skill that's shown up as matched-or-missing across your checked
+  jobs, as columns; resumes as rows; checkmarks where a resume lists
+  that skill).
+
+### Fixed
+- A JSX whitespace-collapsing edge case (multi-line text with an
+  expression splitting a sentence mid-line) silently dropped a space
+  in the Coverage matrix's caption ("9total." instead of "9 total.") —
+  caught by extracting rendered `textContent` in verification rather
+  than trusting a screenshot at a glance. Fixed by using a single
+  template-literal expression instead of mixed JSX text/expression.
+
 ## [1.5.0] - 2026-07-22
 
 ### Added

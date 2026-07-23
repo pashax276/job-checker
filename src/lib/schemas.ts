@@ -105,6 +105,28 @@ export const scheduleOutcomeSchema = z.strictObject({
   outcome: z.enum(["passed", "failed"]).nullable(),
 });
 
+export const questionAddSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
+  text: z.string().trim().min(1).max(2000),
+});
+
+export const questionUpdateSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
+  questionId: z.string().min(1),
+  text: z.string().trim().min(1).max(2000).optional(),
+  response: z.preprocess(toNull, z.string().max(4000).nullable()).optional(),
+});
+
+export const questionRemoveSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
+  questionId: z.string().min(1),
+});
+
+export const questionsImportSchema = z.strictObject({
+  stage: z.enum(SCHEDULABLE_STAGES),
+  texts: z.array(z.string().trim().min(1).max(2000)).max(50),
+});
+
 export const listQuerySchema = z.object({
   status: z.enum(STATUSES).optional(),
   tier: z.enum(TIERS).optional(),
