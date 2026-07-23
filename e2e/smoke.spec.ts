@@ -1,3 +1,6 @@
+import { writeFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 test.describe("smoke", () => {
@@ -177,5 +180,45 @@ test.describe("smoke", () => {
 
     await page.getByRole("button", { name: "Coverage matrix" }).click();
     await expect(page.getByText(/no skill signal yet/i)).toBeVisible();
+  });
+
+  test("Import dialog preview table stays within the dialog's bounds (regression: sm:max-w-sm cascade beat an unprefixed max-w-2xl override, clipping the preview table)", async ({
+    page,
+    request,
+  }) => {
+    const exportRes = await request.get("/api/export?format=json");
+    const jsonPath = join(tmpdir(), `job-tracker-export-${Date.now()}.json`);
+    writeFileSync(jsonPath, await exportRes.body());
+
+    try {
+      await page.goto("/table");
+      await page.getByRole("button", { name: "Import" }).click();
+      const [fileChooser] = await Promise.all([
+        page.waitForEvent("filechooser"),
+        page.getByRole("button", { name: "Choose file" }).click(),
+      ]);
+      await fileChooser.setFiles(jsonPath);
+      await page.getByRole("button", { name: "Preview" }).click();
+      await expect(page.getByText(/rows parsed/)).toBeVisible();
+
+      const dialogBox = await page
+        .locator("[data-slot=dialog-content]")
+        .boundingBox();
+      const tableBox = await page
+        .locator("[data-slot=dialog-content] table")
+        .boundingBox();
+      expect(dialogBox).not.toBeNull();
+      expect(tableBox).not.toBeNull();
+      // the wide preview table (Company/Role/Status/Result) must fit within
+      // (or scroll inside) the dialog, not extend past its right edge
+      expect(tableBox!.x + tableBox!.width).toBeLessThanOrEqual(
+        dialogBox!.x + dialogBox!.width + 1,
+      );
+      // dialog should render at its intended sm:max-w-2xl width, not fall
+      // back to the base component's sm:max-w-sm
+      expect(dialogBox!.width).toBeGreaterThan(500);
+    } finally {
+      unlinkSync(jsonPath);
+    }
   });
 });

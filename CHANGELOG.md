@@ -4,6 +4,25 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.6.3] - 2026-07-23
+
+### Fixed
+- The Import dialog's preview table was still visibly cut off after 1.6.2 —
+  that fix (correct `overflow-x-hidden` clipping) was working exactly as
+  intended, but it exposed a second, separate bug: `ImportDialog` passed an
+  unprefixed `max-w-2xl` override, while the shared `DialogContent` base
+  sets `sm:max-w-sm`. Tailwind always emits responsive-variant rules after
+  base rules in the generated stylesheet, so at any viewport ≥ 640px the
+  base `sm:max-w-sm` won the cascade regardless of the override — the
+  dialog silently stayed at 384px instead of the intended 672px, so its
+  4-column table and description text got correctly clipped at the
+  (wrong, too-narrow) border. `AddJobDialog` and the job drawer's `Sheet`
+  already used variant-scoped overrides (`sm:max-w-2xl`,
+  `data-[side=right]:sm:max-w-xl`) and were unaffected; `ImportDialog` now
+  matches that pattern. Added an e2e regression test that round-trips a
+  real export through Import and asserts the preview table's bounding box
+  never exceeds the dialog's.
+
 ## [1.6.2] - 2026-07-23
 
 ### Fixed

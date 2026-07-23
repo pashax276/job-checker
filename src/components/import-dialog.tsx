@@ -100,7 +100,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Import jobs</DialogTitle>
           <DialogDescription>
