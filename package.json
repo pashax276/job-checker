@@ -1,6 +1,6 @@
 {
   "name": "job-checker",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "scripts": {
     "dev": "next dev",

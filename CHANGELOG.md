@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.6.1] - 2026-07-22
+
+### Fixed
+- Prep Agenda's sidebar repeated the company name for every booked
+  stage — a job with a Screen and a later HM Interview showed "Pano AI"
+  twice as two full entries. Grouped by company: one header, with each
+  stage listed underneath as "Stage · Date".
+
 ## [1.6.0] - 2026-07-22
 
 ### Added

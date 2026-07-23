@@ -180,43 +180,59 @@ export function AgendaView({
     );
   }
 
+  // Group by company so a job with several booked stages (Screen now,
+  // HM Interview later, ...) gets one header instead of repeating the
+  // company name for every stage — see the grouped rows below.
+  const groups = new Map<string, BookedStep[]>();
+  for (const step of steps) {
+    const list = groups.get(step.jobId) ?? [];
+    list.push(step);
+    groups.set(step.jobId, list);
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
-      <div className="space-y-1">
-        {steps.map((step) => {
-          const active = stepKey(step) === stepKey(selected!);
-          const past = step.scheduledFor < todayIso;
-          return (
-            <button
-              key={stepKey(step)}
-              type="button"
-              onClick={() => setSelectedKey(stepKey(step))}
-              className={cn(
-                "block w-full rounded-md border p-2 text-left transition-colors hover:border-ring/40",
-                active ? "border-primary bg-primary/5" : "border-transparent",
-                past && !active && "opacity-60",
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    step.scheduledFor === todayIso
-                      ? "bg-primary"
-                      : "bg-muted-foreground/40",
-                  )}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {step.company}
-                </span>
-              </span>
-              <p className="font-data pl-3 text-xs text-muted-foreground">
-                {fmtDay(step.scheduledFor)} · {step.stage}
-              </p>
-            </button>
-          );
-        })}
+      <div className="space-y-2.5">
+        {[...groups.values()].map((groupSteps) => (
+          <div key={groupSteps[0].jobId}>
+            <p className="truncate px-2 text-sm font-medium">
+              {groupSteps[0].company}
+            </p>
+            <div className="mt-0.5 space-y-0.5">
+              {groupSteps.map((step) => {
+                const active = stepKey(step) === stepKey(selected!);
+                const past = step.scheduledFor < todayIso;
+                return (
+                  <button
+                    key={stepKey(step)}
+                    type="button"
+                    onClick={() => setSelectedKey(stepKey(step))}
+                    className={cn(
+                      "flex w-full items-center gap-1.5 rounded-md border py-1.5 pr-2 pl-4 text-left transition-colors hover:border-ring/40",
+                      active
+                        ? "border-primary bg-primary/5"
+                        : "border-transparent",
+                      past && !active && "opacity-60",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "size-1.5 shrink-0 rounded-full",
+                        step.scheduledFor === todayIso
+                          ? "bg-primary"
+                          : "bg-muted-foreground/40",
+                      )}
+                      aria-hidden
+                    />
+                    <span className="font-data min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      {step.stage} · {fmtDay(step.scheduledFor)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
       {selected ? (
         <StepDetail
