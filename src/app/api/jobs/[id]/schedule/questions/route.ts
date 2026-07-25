@@ -36,7 +36,13 @@ export async function POST(request: Request, ctx: Ctx): Promise<Response> {
   if (!parsed.success) return apiZodError(parsed.error);
   try {
     return apiOk(
-      addQuestion(getDb(), id, parsed.data.stage, parsed.data.text),
+      addQuestion(
+        getDb(),
+        id,
+        parsed.data.stage,
+        parsed.data.text,
+        parsed.data.askedBy,
+      ),
     );
   } catch (err: unknown) {
     return apiError(err instanceof Error ? err.message : "Add failed", 404);
@@ -62,6 +68,7 @@ export async function PUT(request: Request, ctx: Ctx): Promise<Response> {
           id: randomUUID(),
           text,
           response: null,
+          askedBy: "me" as const,
         })),
       ),
     );

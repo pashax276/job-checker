@@ -4,17 +4,23 @@ import { buildTrackerCsv } from "@/lib/csv";
 import { listQuerySchema } from "@/lib/schemas";
 import type { Job } from "@/lib/types";
 import { buildTrackerWorkbook } from "@/lib/xlsx";
+import { buildExportJobs } from "@/server/export";
 import { listJobs } from "@/server/jobs";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
   const format = new URL(request.url).searchParams.get("format") ?? "xlsx";
-  const jobs = listJobs(getDb(), listQuerySchema.parse({})) as Job[];
+  const db = getDb();
+  const jobs = listJobs(db, listQuerySchema.parse({})) as Job[];
   const stamp = new Date().toISOString().slice(0, 10);
 
   if (format === "json") {
-    return new Response(JSON.stringify(jobs, null, 2), {
+    // Unlike xlsx/csv (the flat original tracker columns), JSON is the
+    // richest format — embed each job's resume/cover letter content and
+    // booked-stage prep (notes + structured questions) so it round-trips
+    // as a real backup, not just the spreadsheet columns.
+    return new Response(JSON.stringify(buildExportJobs(db, jobs), null, 2), {
       headers: {
         "content-type": "application/json",
         "content-disposition": `attachment; filename="job-tracker-${stamp}.json"`,

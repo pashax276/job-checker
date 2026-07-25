@@ -7,6 +7,7 @@ export interface PrepQuestion {
   id: string;
   text: string;
   response: string | null;
+  askedBy: "me" | "interviewer";
 }
 
 const QUESTIONS_TO_ASK_HEADING = /^#{1,6}\s*.*questions?\s+to\s+ask.*$/im;

@@ -108,6 +108,7 @@ export const scheduleOutcomeSchema = z.strictObject({
 export const questionAddSchema = z.strictObject({
   stage: z.enum(SCHEDULABLE_STAGES),
   text: z.string().trim().min(1).max(2000),
+  askedBy: z.enum(["me", "interviewer"]).default("me"),
 });
 
 export const questionUpdateSchema = z.strictObject({
@@ -115,6 +116,7 @@ export const questionUpdateSchema = z.strictObject({
   questionId: z.string().min(1),
   text: z.string().trim().min(1).max(2000).optional(),
   response: z.preprocess(toNull, z.string().max(4000).nullable()).optional(),
+  askedBy: z.enum(["me", "interviewer"]).optional(),
 });
 
 export const questionRemoveSchema = z.strictObject({

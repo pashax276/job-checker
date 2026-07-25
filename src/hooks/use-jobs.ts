@@ -209,10 +209,16 @@ export function usePrepQuestions(jobId: string, stage: Status) {
   const onError = (err: Error) => toast.error(err.message);
 
   const addQuestion = useMutation({
-    mutationFn: (text: string) =>
+    mutationFn: ({
+      text,
+      askedBy,
+    }: {
+      text: string;
+      askedBy?: "me" | "interviewer";
+    }) =>
       api<PrepQuestion[]>(`/api/jobs/${jobId}/schedule/questions`, {
         method: "POST",
-        body: JSON.stringify({ stage, text }),
+        body: JSON.stringify({ stage, text, askedBy }),
       }),
     onSuccess: refresh,
     onError,
@@ -225,6 +231,7 @@ export function usePrepQuestions(jobId: string, stage: Status) {
       questionId: string;
       text?: string;
       response?: string | null;
+      askedBy?: "me" | "interviewer";
     }) =>
       api<PrepQuestion[]>(`/api/jobs/${jobId}/schedule/questions`, {
         method: "PATCH",

@@ -5,7 +5,12 @@ import * as scheduleRoute from "@/app/api/jobs/[id]/schedule/route";
 import * as questionsRoute from "@/app/api/jobs/[id]/schedule/questions/route";
 
 type Envelope<T> = { success: boolean; data: T; error: string | null };
-type Question = { id: string; text: string; response: string | null };
+type Question = {
+  id: string;
+  text: string;
+  response: string | null;
+  askedBy: "me" | "interviewer";
+};
 
 const byId = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -115,6 +120,50 @@ describe("POST/PATCH/DELETE /api/jobs/:id/schedule/questions", () => {
       "Is this remote?",
       "What's the comp range?",
     ]);
+  });
+
+  it("defaults askedBy to 'me' when omitted, and accepts 'interviewer' explicitly", async () => {
+    const jobId = await createOne();
+    await scheduleRoute.PUT(
+      jsonRequest(
+        "PUT",
+        "http://test/api/jobs/x/schedule",
+        { stage: "Screen", scheduledFor: "2026-08-01" },
+      ),
+      byId(jobId),
+    );
+
+    const mine = await questionsRoute.POST(
+      jsonRequest("POST", "http://test/api/jobs/x/schedule/questions", {
+        stage: "Screen",
+        text: "Is this role remote?",
+      }),
+      byId(jobId),
+    );
+    const mineBody = (await mine.json()) as Envelope<Question[]>;
+    expect(mineBody.data[0].askedBy).toBe("me");
+
+    const theirs = await questionsRoute.POST(
+      jsonRequest("POST", "http://test/api/jobs/x/schedule/questions", {
+        stage: "Screen",
+        text: "How do you handle prod incidents?",
+        askedBy: "interviewer",
+      }),
+      byId(jobId),
+    );
+    const theirsBody = (await theirs.json()) as Envelope<Question[]>;
+    expect(theirsBody.data[1].askedBy).toBe("interviewer");
+
+    const toggled = await questionsRoute.PATCH(
+      jsonRequest("PATCH", "http://test/api/jobs/x/schedule/questions", {
+        stage: "Screen",
+        questionId: theirsBody.data[1].id,
+        askedBy: "me",
+      }),
+      byId(jobId),
+    );
+    const toggledBody = (await toggled.json()) as Envelope<Question[]>;
+    expect(toggledBody.data[1].askedBy).toBe("me");
   });
 
   it("404s when the step has no booked date", async () => {

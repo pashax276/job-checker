@@ -30,14 +30,46 @@ describe("question CRUD", () => {
     expect(row.questions).toEqual([]);
   });
 
-  it("adds a question with a null response", () => {
+  it("adds a question with a null response, defaulting askedBy to 'me'", () => {
     const questions = addQuestion(db, jobId, "Screen", "Is this remote?");
     expect(questions).toHaveLength(1);
     expect(questions[0]).toMatchObject({
       text: "Is this remote?",
       response: null,
+      askedBy: "me",
     });
     expect(questions[0].id).toBeTruthy();
+  });
+
+  it("adds a question with askedBy 'interviewer' when specified", () => {
+    const questions = addQuestion(
+      db,
+      jobId,
+      "Screen",
+      "How do you handle prod incidents?",
+      "interviewer",
+    );
+    expect(questions[0].askedBy).toBe("interviewer");
+  });
+
+  it("toggles askedBy on an existing question via updateQuestion", () => {
+    const [q] = addQuestion(db, jobId, "Screen", "Draft wording");
+    const questions = updateQuestion(db, jobId, "Screen", q.id, {
+      askedBy: "interviewer",
+    });
+    expect(questions[0].askedBy).toBe("interviewer");
+  });
+
+  it("parseQuestions backfills askedBy 'me' for legacy records missing the field", () => {
+    // legacy rows predate the askedBy field entirely
+    const legacy = [{ id: "x", text: "Old question", response: null }];
+    db.$client
+      .prepare(
+        "UPDATE stage_schedule SET questions = ? WHERE job_id = ? AND stage = 'Screen'",
+      )
+      .run(JSON.stringify(legacy), jobId);
+    const [row] = listAllSchedules(db);
+    expect(row.questions[0].askedBy).toBe("me");
   });
 
   it("records a response to a specific question without touching others", () => {
@@ -69,8 +101,8 @@ describe("question CRUD", () => {
   it("setQuestions replaces the whole list (bulk import from AI text)", () => {
     addQuestion(db, jobId, "Screen", "Stale question");
     const questions = setQuestions(db, jobId, "Screen", [
-      { id: "a", text: "Imported one", response: null },
-      { id: "b", text: "Imported two", response: null },
+      { id: "a", text: "Imported one", response: null, askedBy: "me" },
+      { id: "b", text: "Imported two", response: null, askedBy: "me" },
     ]);
     expect(questions.map((q) => q.text)).toEqual([
       "Imported one",

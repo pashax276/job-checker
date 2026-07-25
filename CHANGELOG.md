@@ -4,6 +4,32 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.7.0] - 2026-07-24
+
+### Added
+- **Questions the interviewer asked you**: the structured Q&A list in Prep
+  (Stack/Agenda/Checklist, all sharing the same rail) now tracks who asked
+  each question, not just questions you plan to ask them. Every question
+  gets a "You"/"Them" tag — click it to switch direction — and the
+  response field's placeholder adapts ("Their response, your read on it…"
+  vs. "Your answer, how it landed…"). Legacy questions (recorded before
+  this field existed) default to "You", preserving their original meaning.
+  The "Add a question" form has the same tag to pick direction before
+  typing, defaulting to "You".
+- **JSON export is now a real backup, not just the spreadsheet columns**:
+  `GET /api/export?format=json` previously only ever serialized the flat
+  `jobs` table (same shape as xlsx/csv), so `resumeId`/`coverLetterId`
+  exported as bare, dangling IDs and all prep work (notes, booked stages,
+  structured questions) was silently absent from every export format.
+  JSON export now embeds each job's full resume/cover letter content
+  (extracted text, not the 2,500-char excerpt used elsewhere, plus parsed
+  skills/bullets/experience) and its complete prep history per stage
+  (notes, outcome, and the structured question list with each one's
+  You/Them tag). xlsx/csv are unchanged — they stay the flat original
+  tracker column layout by design. The extra fields are additive and
+  ignored by re-import, so JSON export/import continues to round-trip
+  exactly as before.
+
 ## [1.6.3] - 2026-07-23
 
 ### Fixed

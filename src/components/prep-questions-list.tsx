@@ -8,6 +8,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { usePrepQuestions } from "@/hooks/use-jobs";
 import type { Status } from "@/lib/constants";
 import { extractQuestionsFromMarkdown, type PrepQuestion } from "@/lib/prep-notes";
+import { cn } from "@/lib/utils";
+
+function AskedByTag({
+  askedBy,
+  onToggle,
+}: {
+  askedBy: "me" | "interviewer";
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title="Click to switch who asked this"
+      className={cn(
+        "shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium tracking-wide uppercase",
+        askedBy === "me"
+          ? "bg-primary/10 text-primary"
+          : "bg-status-assessment/10 text-status-assessment",
+      )}
+    >
+      {askedBy === "me" ? "You" : "Them"}
+    </button>
+  );
+}
 
 function QuestionRow({
   index,
@@ -17,7 +42,11 @@ function QuestionRow({
 }: {
   index: number;
   question: PrepQuestion;
-  onUpdate: (patch: { text?: string; response?: string | null }) => void;
+  onUpdate: (patch: {
+    text?: string;
+    response?: string | null;
+    askedBy?: "me" | "interviewer";
+  }) => void;
   onRemove: () => void;
 }) {
   const [editingText, setEditingText] = useState(false);
@@ -29,6 +58,14 @@ function QuestionRow({
         <span className="font-data pt-0.5 text-[10px] text-muted-foreground">
           {index + 1}.
         </span>
+        <AskedByTag
+          askedBy={question.askedBy}
+          onToggle={() =>
+            onUpdate({
+              askedBy: question.askedBy === "me" ? "interviewer" : "me",
+            })
+          }
+        />
         {editingText ? (
           <form
             className="flex min-w-0 flex-1 gap-1"
@@ -74,7 +111,11 @@ function QuestionRow({
       <Textarea
         rows={1}
         className="field-sizing-content min-h-7 py-1 pl-5 text-[11px]"
-        placeholder="Their response, your read on it…"
+        placeholder={
+          question.askedBy === "me"
+            ? "Their response, your read on it…"
+            : "Your answer, how it landed…"
+        }
         defaultValue={question.response ?? ""}
         onBlur={(e) => {
           const next = e.target.value.trim() || null;
@@ -101,6 +142,7 @@ export function PrepQuestionsList({
   const { addQuestion, updateQuestion, removeQuestion, importQuestions } =
     usePrepQuestions(jobId, stage);
   const [newText, setNewText] = useState("");
+  const [newAskedBy, setNewAskedBy] = useState<"me" | "interviewer">("me");
   const importable =
     questions.length === 0 && markdownFallback
       ? extractQuestionsFromMarkdown(markdownFallback)
@@ -142,13 +184,32 @@ export function PrepQuestionsList({
         onSubmit={(e) => {
           e.preventDefault();
           if (!newText.trim()) return;
-          addQuestion.mutate(newText.trim());
+          addQuestion.mutate({ text: newText.trim(), askedBy: newAskedBy });
           setNewText("");
         }}
       >
+        <button
+          type="button"
+          aria-label={`Asked by: ${newAskedBy === "me" ? "you" : "the interviewer"} — click to switch`}
+          onClick={() =>
+            setNewAskedBy((v) => (v === "me" ? "interviewer" : "me"))
+          }
+          className={cn(
+            "h-6 shrink-0 rounded-sm px-1.5 text-[9px] font-medium tracking-wide uppercase",
+            newAskedBy === "me"
+              ? "bg-primary/10 text-primary"
+              : "bg-status-assessment/10 text-status-assessment",
+          )}
+        >
+          {newAskedBy === "me" ? "You" : "Them"}
+        </button>
         <Input
           className="h-6 text-[10px]"
-          placeholder="Add a question…"
+          placeholder={
+            newAskedBy === "me"
+              ? "Add a question to ask…"
+              : "Add a question they asked…"
+          }
           value={newText}
           onChange={(e) => setNewText(e.target.value)}
         />

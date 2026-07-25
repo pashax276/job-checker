@@ -146,6 +146,13 @@ test.describe("smoke", () => {
     await request.post(`/api/jobs/${target.id}/schedule/questions`, {
       data: { stage: "Screen", text: "Is this remote?" },
     });
+    await request.post(`/api/jobs/${target.id}/schedule/questions`, {
+      data: {
+        stage: "Screen",
+        text: "How do you handle prod incidents?",
+        askedBy: "interviewer",
+      },
+    });
 
     await page.goto("/prep");
     await page.getByRole("button", { name: "Agenda" }).click();
@@ -153,6 +160,23 @@ test.describe("smoke", () => {
       page.getByText("Platform Science", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Is this remote?")).toBeVisible();
+    await expect(page.getByText("How do you handle prod incidents?")).toBeVisible();
+    // my own question tagged "You", the interviewer's tagged "Them"
+    const questionsList = page.locator("ol").filter({ hasText: "Is this remote?" });
+    await expect(questionsList.getByText("You", { exact: true })).toBeVisible();
+    await expect(questionsList.getByText("Them", { exact: true })).toBeVisible();
+
+    // clicking the tag toggles direction and persists
+    await questionsList.getByText("You", { exact: true }).click();
+    await expect(questionsList.getByText("You", { exact: true })).toHaveCount(0);
+    await page.reload();
+    await page.getByRole("button", { name: "Agenda" }).click();
+    const questionsListAfterReload = page
+      .locator("ol")
+      .filter({ hasText: "Is this remote?" });
+    await expect(
+      questionsListAfterReload.getByText("You", { exact: true }),
+    ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Checklist" }).click();
     await expect(page.getByText("Questions prepared")).toBeVisible();

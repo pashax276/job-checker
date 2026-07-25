@@ -22,7 +22,13 @@ export function parseQuestions(raw: string | null): PrepQuestion[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as PrepQuestion[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // legacy rows predate askedBy — they were always "questions I plan to
+    // ask", so that's the correct backfilled default.
+    return (parsed as PrepQuestion[]).map((q) => ({
+      ...q,
+      askedBy: q.askedBy ?? "me",
+    }));
   } catch {
     return [];
   }
@@ -179,10 +185,16 @@ export function addQuestion(
   jobId: string,
   stage: Status,
   text: string,
+  askedBy: "me" | "interviewer" = "me",
 ): PrepQuestion[] {
   const row = getScheduleRow(db, jobId, stage);
   if (!row) throw new Error(`No booked ${stage} step for this job`);
-  const question: PrepQuestion = { id: randomUUID(), text, response: null };
+  const question: PrepQuestion = {
+    id: randomUUID(),
+    text,
+    response: null,
+    askedBy,
+  };
   return writeQuestions(db, jobId, stage, [
     ...parseQuestions(row.questions),
     question,
@@ -194,7 +206,11 @@ export function updateQuestion(
   jobId: string,
   stage: Status,
   questionId: string,
-  patch: { text?: string; response?: string | null },
+  patch: {
+    text?: string;
+    response?: string | null;
+    askedBy?: "me" | "interviewer";
+  },
 ): PrepQuestion[] {
   const row = getScheduleRow(db, jobId, stage);
   if (!row) throw new Error(`No booked ${stage} step for this job`);

@@ -142,14 +142,43 @@ describe("GET /api/export", () => {
     );
   });
 
-  it("returns JSON export", async () => {
+  it("returns JSON export enriched with resume/coverLetter/prep, defaulting to null/empty", async () => {
     const res = await exportRoute.GET(
       new Request("http://test/api/export?format=json"),
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("content-disposition")).toContain(".json");
-    const rows = (await res.json()) as unknown[];
+    const rows = (await res.json()) as Array<{
+      company: string;
+      resume: unknown;
+      coverLetter: unknown;
+      prep: unknown[];
+    }>;
     expect(rows).toHaveLength(1);
+    expect(rows[0].company).toBe("Acme");
+    expect(rows[0].resume).toBeNull();
+    expect(rows[0].coverLetter).toBeNull();
+    expect(rows[0].prep).toEqual([]);
+  });
+
+  it("JSON export's extra resume/coverLetter/prep fields don't break re-import (jobToTrackerRow ignores unknown keys)", async () => {
+    const exportRes = await exportRoute.GET(
+      new Request("http://test/api/export?format=json"),
+    );
+    const exported = await exportRes.text();
+    const form = new FormData();
+    form.set("file", new File([exported], "export.json", { type: "application/json" }));
+    form.set("mode", "preview");
+    const res = await importRoute.POST(
+      new Request("http://test/api/import", { method: "POST", body: form }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<{
+      rows: Array<{ duplicateOfId: string | null; error: string | null }>;
+    }>;
+    expect(body.data.rows).toHaveLength(1);
+    expect(body.data.rows[0].error).toBeNull();
+    expect(body.data.rows[0].duplicateOfId).not.toBeNull();
   });
 
   it("returns an xlsx attachment", async () => {
