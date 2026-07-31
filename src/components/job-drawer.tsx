@@ -711,7 +711,12 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
               </SheetDescription>
             </SheetHeader>
 
-            <div className="grid lg:grid-cols-[5fr_4fr]">
+            {/* minmax(0,…) not a bare fr: `5fr` means `minmax(auto, 5fr)`, and
+                an `auto` minimum refuses to shrink below the column's
+                min-content width — the journey rail and contact inputs then
+                pushed the right column ~72px past the drawer, where the
+                sheet's overflow-x-hidden silently clipped them. */}
+            <div className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
             <div
               className="space-y-3 px-4 pb-4 lg:border-r"
               onKeyDown={(e) => {
@@ -776,6 +781,15 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                     size="sm"
                     onClick={save}
                     disabled={updateJob.isPending || !dirty}
+                    // Disabled-until-dirty is right, but at 50% opacity with
+                    // nothing to explain it the button just reads as broken.
+                    title={
+                      updateJob.isPending
+                        ? "Saving…"
+                        : dirty
+                          ? "Save your edits (⌘/Ctrl + Enter)"
+                          : "No changes to save yet — edit a field to enable"
+                    }
                   >
                     {updateJob.isPending ? "Saving…" : "Save changes"}
                   </Button>

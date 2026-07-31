@@ -4,6 +4,30 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.9.2] - 2026-07-31
+
+### Fixed
+- **The job drawer was hiding its right-hand buttons off-screen.** Reported
+  as buttons looking "faded away" — they weren't faded, they were clipped.
+  The drawer's two-column grid used `lg:grid-cols-[5fr_4fr]`, and a bare
+  `fr` track is `minmax(auto, …)`: the `auto` minimum refuses to shrink
+  below the column's min-content width, so the journey rail and contact
+  inputs forced the right column ~72px past the drawer at every viewport
+  size. 1.6.2's `overflow-x-hidden` then clipped it cleanly, which is why
+  it read as "cut off" rather than visibly broken. Switched to
+  `minmax(0,5fr)_minmax(0,4fr)`. Contacts' **Add**, skill match's
+  **Re-check**, the follow-up email's **Copy** and the timeline's **Log**
+  buttons are all reachable again, and the compensation fields stopped
+  truncating (`base $170k`, not `base $17(`).
+- Save changes really was faded: it's disabled until something is edited,
+  at 50% opacity with nothing to explain why. It now carries a tooltip
+  ("No changes to save yet — edit a field to enable", or the ⌘/Ctrl+Enter
+  shortcut once dirty), the same affordance added to skill match in 1.4.1.
+
+Added an e2e regression test asserting the drawer's scroll geometry and
+that nothing renders past its right edge — this class of bug is invisible
+by construction, since the clip hides its own evidence.
+
 ## [1.9.1] - 2026-07-31
 
 ### Changed

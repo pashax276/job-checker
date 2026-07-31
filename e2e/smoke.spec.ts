@@ -251,6 +251,36 @@ test.describe("smoke", () => {
     ).toBeVisible();
   });
 
+  test("job drawer never clips its right column (regression: bare `5fr` grid columns won't shrink below min-content, hiding Add/Re-check/Copy/Log off-edge)", async ({
+    page,
+  }) => {
+    await page.goto("/table");
+    await page.locator("tbody tr").first().click();
+    const sheet = page.locator("[data-slot=sheet-content]");
+    await expect(sheet).toBeVisible();
+
+    // the sheet clips overflow, so a too-wide column fails silently — assert
+    // on scroll geometry rather than on anything being visibly wrong
+    const geo = await sheet.evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(geo.scrollWidth).toBeLessThanOrEqual(geo.clientWidth + 1);
+
+    const past = await sheet.evaluate((el) => {
+      const right = el.getBoundingClientRect().right;
+      return [...el.querySelectorAll("*")].filter(
+        (n) => n.getBoundingClientRect().right > right + 1,
+      ).length;
+    });
+    expect(past).toBe(0);
+
+    // the right column's actions must actually be reachable
+    await expect(
+      page.getByRole("button", { name: "Log", exact: true }),
+    ).toBeVisible();
+  });
+
   test("Import dialog preview table stays within the dialog's bounds (regression: sm:max-w-sm cascade beat an unprefixed max-w-2xl override, clipping the preview table)", async ({
     page,
     request,
