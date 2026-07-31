@@ -7,6 +7,13 @@ export type LocationClass =
 
 const SENIORITY_RE = /\b(Senior|Staff|Sr\.?)\b/i;
 const EXCLUDE_RE = /(Junior|Intern\b|Entry.Level)/i;
+
+// People-management, product, and customer-facing roles. These sit on
+// infrastructure teams and carry the same keywords, so nothing above can
+// tell them apart from the IC engineering job actually being looked for.
+// "Lead" is deliberately absent — a tech lead is usually still an IC.
+const NON_IC_RE =
+  /\b(Manager|Director|Head of|VP|Vice President|Solutions|Customer|Support|Sales|Account Executive|Recruiter|Analyst|Designer|Evangelist|Advocate)\b/i;
 const AWS_RE = /\bAWS\b/i;
 
 // The discipline names the role itself: "Infrastructure Engineer", "Site
@@ -37,6 +44,7 @@ const NON_INFRA_QUALIFIER_RE =
  */
 export function titleMatches(title: string): boolean {
   if (!SENIORITY_RE.test(title) || EXCLUDE_RE.test(title)) return false;
+  if (NON_IC_RE.test(title)) return false;
   if (ROLE_NOUN_RE.test(title) || STANDALONE_ROLE_RE.test(title)) return true;
   return CORE_INFRA_TEAM_RE.test(title) && !NON_INFRA_QUALIFIER_RE.test(title);
 }

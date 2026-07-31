@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.9.1] - 2026-07-31
+
+### Changed
+- Discovery now rejects people-management, product, and customer-facing
+  titles outright. 1.9.0 tightened the domain match but still keyed on
+  team keywords, so "Sr. Product Manager, Compute Platform" passed on the
+  word "Compute" and was only ever cut by its location — a remote-US PM
+  or Engineering Manager role would have slipped through. Manager,
+  Director, Head of, VP, Solutions, Customer, Support, Sales, Recruiter,
+  Analyst, Designer, Evangelist and Advocate are now excluded regardless
+  of how infrastructure-flavoured the rest of the title is. "Lead" is
+  deliberately not excluded — a tech lead is usually still an IC.
+
 ## [1.9.0] - 2026-07-31
 
 ### Changed

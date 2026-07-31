@@ -47,6 +47,21 @@ describe("titleMatches", () => {
       false,
     ],
     ["Staff+ Software Engineer, Safeguards ML Infrastructure", false],
+
+    // Not individual-contributor engineering, however infra-flavoured the
+    // team is. "Sr. Product Manager, Compute Platform" used to pass on the
+    // word "Compute" and was only ever cut by its location.
+    ["Senior Engineering Manager for Workspace Platform", false],
+    ["Sr. Manager, Engineering Configuration Platform Team", false],
+    ["Sr. Product Manager, Compute Platform", false],
+    ["Staff Technical Program Manager- Platform Features", false],
+    ["Senior Technical Solutions Engineer (Platform)", false],
+    ["Senior Customer Engineer- Cloudflare Developer Platform", false],
+    ["Senior Director of Product, Ads Platform", false],
+    ["Senior Support Engineer, Cloud Infrastructure", false],
+    // ...but a plain IC title is untouched
+    ["Senior Site Reliability Engineer", true],
+    ["Staff Infrastructure Engineer", true],
   ])("%s -> %s", (title, expected) => {
     expect(titleMatches(title)).toBe(expected);
   });
