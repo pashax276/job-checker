@@ -73,3 +73,7 @@ export const TRACKER_COLUMNS = [
   "Notes",
   "Posting URL",
 ] as const;
+
+// Sentinel for "no filter" in Select controls — Select cannot hold an
+// empty string as a value, and this must never surface as visible text.
+export const ALL_FILTER = "__all__";

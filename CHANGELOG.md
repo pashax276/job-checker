@@ -4,6 +4,34 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.10.0] - 2026-07-31
+
+### Added
+- **Board filters: priority tier, skill match, and follow-up due.** Tier
+  and follow-up-due reuse the existing server-side query the table already
+  used, so both views filter identically. Skill match is a JSON blob on
+  the row rather than a column, so it can't be filtered in SQL — the board
+  filters it client-side over the jobs it already holds. Its buckets reuse
+  the thresholds the tiles were already colouring by, so the filter and
+  the badge can't disagree: Strong (70%+), Partial (40–69%), Weak (under
+  40%), plus "Any checked" and "Not checked yet". A count of what's shown
+  and a Clear button appear once any filter is active.
+
+### Fixed
+- **Filter dropdowns displayed a raw `__all__` sentinel** instead of their
+  placeholder whenever no filter was applied — on the table since filters
+  were added, and immediately visible on the new board bar. Base UI's
+  `SelectValue` renders the underlying value when given no formatter, and
+  Select can't hold an empty string, so the "no filter" sentinel leaked
+  straight through as visible text. Fixed once in the shared `SelectValue`
+  wrapper rather than at each call site, with the sentinel promoted to a
+  shared `ALL_FILTER` constant so the component and its callers can't
+  disagree about it. Covered by an e2e test asserting no filter select
+  ever renders the sentinel.
+- The board's follow-up-due checkbox had no accessible name — the
+  primitive renders a button, so an adjacent `<Label htmlFor>` never named
+  it for assistive tech. Given an explicit `aria-label`.
+
 ## [1.9.2] - 2026-07-31
 
 ### Fixed

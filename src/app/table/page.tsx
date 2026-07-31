@@ -54,11 +54,16 @@ import {
 } from "@/components/ui/table";
 import { useJobs, useUpdateJob } from "@/hooks/use-jobs";
 import { composeComp } from "@/lib/comp";
-import { STATUSES, TIERS, type Status, type Tier } from "@/lib/constants";
+import {
+  ALL_FILTER as ALL,
+  STATUSES,
+  TIERS,
+  type Status,
+  type Tier,
+} from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
 import type { Job } from "@/lib/types";
 
-const ALL = "__all__";
 const SAVED_VIEWS_KEY = "table-saved-views";
 
 interface SavedView {

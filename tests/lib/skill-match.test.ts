@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeSkillMatch, stripHtmlToText } from "@/lib/skill-match";
+import {
+  computeSkillMatch,
+  matchesSkillFilter,
+  skillMatchBucket,
+  stripHtmlToText,
+} from "@/lib/skill-match";
 
 const JD_HTML = `
 <html><head><style>.x{color:red}</style><script>track()</script></head>
@@ -50,5 +55,47 @@ describe("computeSkillMatch", () => {
   it("matches case-insensitively against the resume list", () => {
     const result = computeSkillMatch(["aws"], "AWS required");
     expect(result.matched).toEqual(["AWS"]);
+  });
+});
+
+describe("skillMatchBucket", () => {
+  const at = (score: number): string =>
+    JSON.stringify({ score, matched: [], missing: [], checkedAt: "2026-07-31" });
+
+  it("buckets by the same thresholds the board tiles already colour by", () => {
+    expect(skillMatchBucket(at(0.9))).toBe("strong");
+    expect(skillMatchBucket(at(0.7))).toBe("strong"); // boundary is inclusive
+    expect(skillMatchBucket(at(0.69))).toBe("partial");
+    expect(skillMatchBucket(at(0.4))).toBe("partial"); // boundary is inclusive
+    expect(skillMatchBucket(at(0.39))).toBe("weak");
+    expect(skillMatchBucket(at(0))).toBe("weak");
+  });
+
+  it("reports a job that has never been checked as its own bucket", () => {
+    expect(skillMatchBucket(null)).toBe("unchecked");
+    expect(skillMatchBucket("not json")).toBe("unchecked");
+  });
+});
+
+describe("matchesSkillFilter", () => {
+  const at = (score: number): string =>
+    JSON.stringify({ score, matched: [], missing: [], checkedAt: "2026-07-31" });
+
+  it("passes everything when no filter is set", () => {
+    expect(matchesSkillFilter(at(0.1), undefined)).toBe(true);
+    expect(matchesSkillFilter(null, undefined)).toBe(true);
+  });
+
+  it("keeps only the selected bucket", () => {
+    expect(matchesSkillFilter(at(0.8), "strong")).toBe(true);
+    expect(matchesSkillFilter(at(0.5), "strong")).toBe(false);
+    expect(matchesSkillFilter(null, "unchecked")).toBe(true);
+    expect(matchesSkillFilter(at(0.8), "unchecked")).toBe(false);
+  });
+
+  it("'checked' accepts any real score but never an unchecked job", () => {
+    expect(matchesSkillFilter(at(0.05), "checked")).toBe(true);
+    expect(matchesSkillFilter(at(0.95), "checked")).toBe(true);
+    expect(matchesSkillFilter(null, "checked")).toBe(false);
   });
 });

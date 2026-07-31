@@ -48,3 +48,34 @@ export function parseStoredSkillMatch(
     return null;
   }
 }
+
+/** Strong / partial thresholds — the same cuts the board tiles colour by. */
+export const SKILL_MATCH_STRONG = 0.7;
+export const SKILL_MATCH_PARTIAL = 0.4;
+
+export type SkillMatchBucket = "strong" | "partial" | "weak" | "unchecked";
+/** "checked" spans every real score; the buckets above are exclusive. */
+export type SkillMatchFilter = SkillMatchBucket | "checked";
+
+export function skillMatchBucket(raw: string | null): SkillMatchBucket {
+  const match = parseStoredSkillMatch(raw);
+  if (!match) return "unchecked";
+  if (match.score >= SKILL_MATCH_STRONG) return "strong";
+  if (match.score >= SKILL_MATCH_PARTIAL) return "partial";
+  return "weak";
+}
+
+/**
+ * Skill match lives as a JSON blob on the row, so unlike status/tier it
+ * can't be filtered in SQL — the board filters it client-side over the
+ * jobs it already holds.
+ */
+export function matchesSkillFilter(
+  raw: string | null,
+  filter: SkillMatchFilter | undefined,
+): boolean {
+  if (!filter) return true;
+  const bucket = skillMatchBucket(raw);
+  if (filter === "checked") return bucket !== "unchecked";
+  return bucket === filter;
+}

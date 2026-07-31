@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
+import { ALL_FILTER } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
@@ -18,13 +19,31 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+/**
+ * Filter selects use a sentinel value for "no filter", because Select can't
+ * hold an empty string. Base UI renders the raw value when no formatter is
+ * given, so that sentinel leaked to the UI as a literal "__all__". Map it
+ * back to the placeholder here, once, rather than at every call site.
+ */
+function SelectValue({
+  className,
+  placeholder,
+  children,
+  ...props
+}: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {children ??
+        ((value: unknown) =>
+          value === ALL_FILTER || value === null || value === ""
+            ? placeholder
+            : String(value))}
+    </SelectPrimitive.Value>
   )
 }
 

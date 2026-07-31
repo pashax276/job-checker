@@ -17,17 +17,36 @@ import { useState } from "react";
 import { DueBadge, SourceIcon, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useJobs, useStats, useUpdateJob } from "@/hooks/use-jobs";
 import { composeComp } from "@/lib/comp";
-import { STATUSES, type Status } from "@/lib/constants";
+import {
+  ALL_FILTER as ALL,
+  STATUSES,
+  TIERS,
+  type Status,
+  type Tier,
+} from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
-import { parseStoredSkillMatch } from "@/lib/skill-match";
+import {
+  matchesSkillFilter,
+  parseStoredSkillMatch,
+  type SkillMatchFilter,
+} from "@/lib/skill-match";
 import type { Job } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +60,16 @@ const STATUS_TOP: Record<Status, string> = {
   Offer: "border-t-status-offer",
   Skipped: "border-t-status-skipped",
   Rejected: "border-t-status-rejected",
+};
+
+// Bucket labels spell out the thresholds the tiles already colour by, so the
+// filter and the badge on a card can never appear to disagree.
+const SKILL_FILTER_LABEL: Record<SkillMatchFilter, string> = {
+  strong: "Strong — 70%+",
+  partial: "Partial — 40–69%",
+  weak: "Weak — under 40%",
+  checked: "Any checked",
+  unchecked: "Not checked yet",
 };
 
 // Spec nice-to-have: WIP-style aging warnings, amber past the threshold.
@@ -246,6 +275,7 @@ function Column({
 
 const HIDDEN_COLUMNS_KEY = "board-hidden-columns";
 
+
 function loadHiddenColumns(): Set<Status> {
   // Safe in the initializer: the board renders a loading state on both the
   // server and the first client paint, so no hydration divergence.
@@ -259,7 +289,13 @@ function loadHiddenColumns(): Set<Status> {
 }
 
 export default function BoardPage() {
-  const { data: jobs, isLoading } = useJobs();
+  // tier + dueOnly are real server-side filters (same ones the table uses);
+  // skill match is a JSON blob on the row, so it's filtered client-side below.
+  const [tier, setTier] = useState<Tier | undefined>(undefined);
+  const [dueOnly, setDueOnly] = useState(false);
+  const [skill, setSkill] = useState<SkillMatchFilter | undefined>(undefined);
+  const { data: allJobs, isLoading } = useJobs({ tier, dueOnly });
+  const jobs = allJobs?.filter((j) => matchesSkillFilter(j.skillMatch, skill));
   const { data: stats } = useStats();
   const updateJob = useUpdateJob();
   const agingById = new Map(
@@ -318,9 +354,96 @@ export default function BoardPage() {
 
   const visibleStatuses = STATUSES.filter((s) => !hiddenColumns.has(s));
 
+  const filtered = tier !== undefined || dueOnly || skill !== undefined;
+
   return (
     <div className="flex h-full flex-col gap-2 p-4">
-      <div className="flex shrink-0 justify-end gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Select
+          value={tier ?? ALL}
+          onValueChange={(v) => setTier(v === ALL ? undefined : (v as Tier))}
+        >
+          <SelectTrigger size="sm" className="w-32 text-xs">
+            <SelectValue placeholder="Tier" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL} className="text-xs">
+              All tiers
+            </SelectItem>
+            {TIERS.map((t) => (
+              <SelectItem key={t} value={t} className="text-xs">
+                {t}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={skill ?? ALL}
+          onValueChange={(v) =>
+            setSkill(v === ALL ? undefined : (v as SkillMatchFilter))
+          }
+        >
+          <SelectTrigger size="sm" className="w-40 text-xs">
+            {/* this select's values aren't its labels, so it needs its own
+                formatter rather than the shared value-as-text default */}
+            <SelectValue placeholder="Skill match">
+              {(v: unknown) =>
+                v === ALL || v === null
+                  ? "Skill match"
+                  : SKILL_FILTER_LABEL[v as SkillMatchFilter]
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL} className="text-xs">
+              Any skill match
+            </SelectItem>
+            {(
+              Object.keys(SKILL_FILTER_LABEL) as SkillMatchFilter[]
+            ).map((key) => (
+              <SelectItem key={key} value={key} className="text-xs">
+                {SKILL_FILTER_LABEL[key]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-center gap-1.5">
+          <Checkbox
+            id="board-due-only"
+            // the primitive renders a button, so htmlFor alone doesn't name
+            // it for assistive tech (or for getByLabel)
+            aria-label="Follow-up due"
+            checked={dueOnly}
+            onCheckedChange={(c) => setDueOnly(c === true)}
+          />
+          <Label htmlFor="board-due-only" className="text-xs">
+            Follow-up due
+          </Label>
+        </div>
+
+        {filtered ? (
+          <>
+            <span className="font-data text-xs text-muted-foreground">
+              {jobs.length} shown
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => {
+                setTier(undefined);
+                setDueOnly(false);
+                setSkill(undefined);
+              }}
+            >
+              Clear
+            </Button>
+          </>
+        ) : null}
+
+        <div className="flex-1" />
         <Button
           variant="outline"
           size="sm"

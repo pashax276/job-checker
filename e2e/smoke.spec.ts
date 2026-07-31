@@ -251,6 +251,59 @@ test.describe("smoke", () => {
     ).toBeVisible();
   });
 
+  test("board filters by tier, follow-up due, and skill match", async ({
+    page,
+  }) => {
+    await page.goto("/board");
+    const cards = page.locator("section[aria-label$='column'] li");
+    // count() doesn't auto-wait — let the board finish loading first
+    await expect(cards.first()).toBeVisible();
+    const total = await cards.count();
+    expect(total).toBeGreaterThan(0);
+
+    // tier — server-side, same filter the table uses
+    await page.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "2 - High", exact: true }).click();
+    await expect(page.getByText(/\d+ shown/)).toBeVisible();
+    const tierFiltered = await cards.count();
+    expect(tierFiltered).toBeLessThan(total);
+
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect(cards).toHaveCount(total);
+
+    // skill match — client-side, since it's JSON on the row
+    await page.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Not checked yet" }).click();
+    const uncheckedOnly = await cards.count();
+    expect(uncheckedOnly).toBeLessThanOrEqual(total);
+    // seeded jobs have no skill match, so none should show a % badge
+    await expect(
+      page.locator("section[aria-label$='column'] li").getByText(/^\d+%$/),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+
+    // follow-up due
+    await page.getByRole("checkbox", { name: "Follow-up due" }).check();
+    await expect(page.getByText(/\d+ shown/)).toBeVisible();
+    expect(await cards.count()).toBeLessThan(total);
+  });
+
+  test("filter selects never leak the __all__ sentinel as visible text", async ({
+    page,
+  }) => {
+    for (const path of ["/table", "/board"]) {
+      await page.goto(path);
+      // Base UI renders the raw value when no formatter is given, so the
+      // "no filter" sentinel used to show up literally as "__all__"
+      await expect(page.getByText("__all__")).toHaveCount(0);
+      const labels = await page.getByRole("combobox").allTextContents();
+      for (const label of labels) {
+        expect(label, `${path} combobox label`).not.toContain("__all__");
+      }
+    }
+  });
+
   test("job drawer never clips its right column (regression: bare `5fr` grid columns won't shrink below min-content, hiding Add/Re-check/Copy/Log off-edge)", async ({
     page,
   }) => {
