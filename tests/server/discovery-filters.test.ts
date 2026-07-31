@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyLocation,
   descriptionMatches,
+  locationAllowed,
   matchedKeywords,
   titleMatches,
 } from "@/server/discovery/filters";
@@ -19,6 +20,33 @@ describe("titleMatches", () => {
     ["Platform Engineering Intern", false],
     ["Senior DevOps Engineer (Entry Level)", false],
     ["Entry-Level Senior-track SRE", false],
+
+    // The discipline names the role — always in scope.
+    ["Staff Infrastructure Security Engineer", true],
+    ["Sr. Staff Production Engineer - Data Platform", true],
+    ["Sr. IT Site Reliability Software Engineer", true],
+    [
+      "Site Reliability Engineer, Intermediate to Senior Staff — Infrastructure Platforms",
+      true,
+    ],
+
+    // "Software Engineer" on a genuinely core-infra team still counts.
+    ["Senior Staff+ Software Engineer, Kubernetes Platform", true],
+    ["Staff Software Engineer, Compute Infrastructure", true],
+    ["Staff Software Engineer (L4) Data Platform", true],
+    ["Staff Engineer, Core Infrastructure", true],
+    ["Staff Software Engineer, Storage Platform", true],
+
+    // ...but an ML/AI or product-flavoured "platform" is a different job.
+    ["Senior Software Engineer, GenAI Platform", false],
+    ["Staff Software Engineer, Machine Learning Platform", false],
+    ["Senior Software Engineer, Backend (ML Feature Platform)", false],
+    ["Senior Software engineer (Furnishing Platform)", false],
+    [
+      "Senior Software Engineer - Full Stack Internal Tooling (Build and Deployment Platform)",
+      false,
+    ],
+    ["Staff+ Software Engineer, Safeguards ML Infrastructure", false],
   ])("%s -> %s", (title, expected) => {
     expect(titleMatches(title)).toBe(expected);
   });
@@ -42,12 +70,49 @@ describe("classifyLocation", () => {
     ["US Remote", "Remote-US"],
     ["Remote - USA", "Remote-US"],
     ["Remote", "Unverified"], // country not stated — never guess
-    ["Remote - Canada", "Unverified"],
-    ["New York, NY", "Unverified"],
     [null, "Unverified"],
     ["", "Unverified"],
+    // remote, but explicitly somewhere we can't work
+    ["Remote - Canada", "Remote-other"],
+    ["Remote Poland", "Remote-other"],
+    ["Remote, United Kingdom", "Remote-other"],
+    // a named place that is neither San Diego nor remote — knowably wrong,
+    // and previously lumped into "Unverified" alongside genuine unknowns
+    ["New York, NY", "Onsite-elsewhere"],
+    ["San Francisco, California", "Onsite-elsewhere"],
+    ["San Francisco, CA | New York City, NY | Seattle, WA", "Onsite-elsewhere"],
+    ["Mountain View, California; San Francisco, California", "Onsite-elsewhere"],
+    ["Bengaluru, India", "Onsite-elsewhere"],
+    ["Amsterdam, Netherlands", "Onsite-elsewhere"],
+    ["London, England, United Kingdom", "Onsite-elsewhere"],
+    // a multi-site listing that includes US remote still qualifies
+    ["Remote, Canada; Remote, United Kingdom; Remote, US", "Remote-US"],
+    // San Diego wins even when listed alongside other sites
+    ["San Diego, CA; Austin, TX", "San Diego"],
+    // a bare US state is still an office that isn't San Diego
+    ["Virginia", "Onsite-elsewhere"],
+    ["Washington", "Onsite-elsewhere"],
+    // ...but "Remote - US" must not be dragged in by a state name
+    ["Remote - US", "Remote-US"],
+    ["Remote, Washington", "Remote-US"],
   ])("%s -> %s", (location, expected) => {
     expect(classifyLocation(location)).toBe(expected);
+  });
+});
+
+describe("locationAllowed — must be San Diego or US-remote", () => {
+  it("accepts San Diego and US remote", () => {
+    expect(locationAllowed("San Diego")).toBe(true);
+    expect(locationAllowed("Remote-US")).toBe(true);
+  });
+
+  it("rejects onsite-elsewhere and remote outside the US", () => {
+    expect(locationAllowed("Onsite-elsewhere")).toBe(false);
+    expect(locationAllowed("Remote-other")).toBe(false);
+  });
+
+  it("keeps genuinely unreadable locations for manual triage rather than dropping them", () => {
+    expect(locationAllowed("Unverified")).toBe(true);
   });
 });
 

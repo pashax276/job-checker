@@ -8,7 +8,12 @@ import {
   type AtsType,
   type PostingCandidate,
 } from "@/server/discovery/ats";
-import { descriptionMatches, titleMatches } from "@/server/discovery/filters";
+import {
+  classifyLocation,
+  descriptionMatches,
+  locationAllowed,
+  titleMatches,
+} from "@/server/discovery/filters";
 import { rssItemToCandidate, type FeedItem } from "@/server/discovery/rss";
 import { createLeadIfNew, type LeadSource } from "@/server/leads";
 import { getSetting, setSetting } from "@/server/settings";
@@ -63,6 +68,10 @@ function ingest(
     counts.fetched += 1;
     if (!titleMatches(candidate.title)) continue;
     if (requireAws && !descriptionMatches(candidate.description)) continue;
+    // Hard constraint: San Diego or US-remote only. A location we can
+    // positively place elsewhere is dropped; one we simply can't read is
+    // kept for manual triage.
+    if (!locationAllowed(classifyLocation(candidate.location))) continue;
     counts.matched += 1;
     const outcome = createLeadIfNew(db, candidate, source, now);
     if (outcome === "created") counts.created += 1;

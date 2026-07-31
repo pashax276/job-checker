@@ -4,6 +4,36 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.9.0] - 2026-07-31
+
+### Changed
+- **Discovery now enforces the location constraint it was only describing.**
+  `classifyLocation` was computed and stored, but nothing ever filtered on
+  it — every posting became a lead regardless of where it was, so an
+  onsite-in-London role sat in the Inbox next to a remote-US one. Two
+  changes: the classifier gained `Onsite-elsewhere` and `Remote-other` so a
+  location it can positively place (a named city, a US state, a non-US
+  country) is no longer lumped in with genuinely unreadable ones; and
+  discovery drops those two classes. San Diego and US-remote pass.
+  `Unverified` deliberately still passes — a location we can't read is
+  worth eyeballing, whereas one we can place elsewhere isn't. Verified
+  against the live boards: 35 postings correctly cut, including every
+  Anthropic role (SF/NYC/Seattle), Databricks' Bay Area and Costa Rica
+  listings, and remote-but-Canada/UK/Spain roles.
+- **The title gate now requires the role to actually be platform work.**
+  It matched the domain word anywhere in the title, so "Senior Software
+  Engineer, GenAI Platform" and "Staff Android Engineer (Clients
+  Platform)" qualified on the word "Platform" alone — the team name, not
+  the job. A title now passes if the discipline names the role
+  ("Infrastructure Engineer", "Site Reliability Engineer", a bare "SRE"),
+  or if it's a software-engineering role on a core-infra team
+  (Infrastructure / Kubernetes / Cloud / Compute / Storage / Data
+  Platform) — but not when the qualifier is ML/AI or product-shaped
+  (GenAI, Machine Learning, Full Stack, Frontend, Mobile, Backend, Ads).
+  Cut 77 false positives across the watched boards, while keeping
+  "Software Engineer, Kubernetes Platform"-style roles that are genuinely
+  infrastructure work.
+
 ## [1.8.0] - 2026-07-31
 
 ### Fixed
