@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { type Status } from "@/lib/constants";
+import { SCHEDULABLE_STAGES, type Status } from "@/lib/constants";
 import { toLocalIsoDate } from "@/lib/dates";
 import type { CalendarEvent } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,21 @@ const STATUS_VAR: Record<string, string> = {
   Rejected: "var(--status-rejected)",
   "Follow-up": "var(--due)",
 };
+
+/** Every kind a calendar event can carry, in pipeline order. */
+const LEGEND_ORDER: readonly string[] = [...SCHEDULABLE_STAGES, "Follow-up"];
+
+/**
+ * The legend must mirror what's actually plotted. It used to be a hardcoded
+ * four (Screen/HM Interview/Panel/Follow-up), which both advertised Panel
+ * when nothing was booked at that stage AND omitted Applied — usually the
+ * most common booked stage — leaving its blue dots with nothing to decode
+ * them against.
+ */
+export function legendKinds(events: CalendarEvent[]): string[] {
+  const present = new Set(events.map((e) => e.kind));
+  return LEGEND_ORDER.filter((kind) => present.has(kind));
+}
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MAX_CHIPS_PER_DAY = 3;
@@ -175,9 +190,17 @@ export function MonthCalendar({ events, onSelect }: MonthCalendarProps) {
         })}
       </div>
 
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-        {["Screen", "HM Interview", "Panel", "Follow-up"].map((kind) => (
-          <span key={kind} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+      <div
+        role="list"
+        aria-label="Calendar legend"
+        className="flex flex-wrap gap-x-3 gap-y-0.5"
+      >
+        {legendKinds(events).map((kind) => (
+          <span
+            key={kind}
+            role="listitem"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground"
+          >
             <span
               aria-hidden
               className="size-1.5 rounded-full"

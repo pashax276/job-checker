@@ -4,7 +4,7 @@ import { ArrowRight, Copy, ExternalLink, MessageSquare, Trash2 } from "lucide-re
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DueBadge, StatusBadge, TierBadge } from "@/components/badges";
+import { DueBadge, SourceIcon, StatusBadge, TierBadge } from "@/components/badges";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -685,6 +685,7 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                 <TierBadge tier={job.priorityTier} />
                 <StatusBadge status={job.status} />
                 {due ? <DueBadge /> : null}
+                <SourceIcon source={job.source} className="ml-auto size-3.5" />
               </div>
               <SheetTitle className="text-base leading-tight">
                 {job.company} — {job.role}

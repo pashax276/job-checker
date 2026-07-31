@@ -11,10 +11,10 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Columns, FileDown, GraduationCap, Radar, Rows3 } from "lucide-react";
+import { Columns, GraduationCap, Rows3 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { DueBadge, TierBadge } from "@/components/badges";
+import { DueBadge, SourceIcon, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,18 +73,7 @@ function JobCard({
   const stale =
     agingDays !== undefined && threshold !== undefined && agingDays >= threshold;
   const match = parseStoredSkillMatch(job.skillMatch);
-  const sourceIcon =
-    job.source === "discovery" ? (
-      <Radar
-        className="size-3 shrink-0 text-primary/70"
-        aria-label="Found by discovery"
-      />
-    ) : job.source === "import" ? (
-      <FileDown
-        className="size-3 shrink-0 text-muted-foreground/70"
-        aria-label="Imported from tracker"
-      />
-    ) : null;
+  const sourceIcon = <SourceIcon source={job.source} />;
   if (compact) {
     return (
       <button

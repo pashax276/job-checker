@@ -206,6 +206,51 @@ test.describe("smoke", () => {
     await expect(page.getByText(/no skill signal yet/i)).toBeVisible();
   });
 
+  test("calendar legend lists exactly the event kinds plotted (regression: hardcoded legend omitted Applied, advertised unused Panel)", async ({
+    page,
+    request,
+  }) => {
+    const jobsRes = await request.get("/api/jobs");
+    const jobs = (await jobsRes.json()).data as Array<{
+      id: string;
+      company: string;
+    }>;
+    const target = jobs.find((j) => j.company === "Platform Science")!;
+    // book an Applied step — the kind the old hardcoded legend never listed
+    await request.put(`/api/jobs/${target.id}/schedule`, {
+      data: { stage: "Applied", scheduledFor: "2026-08-03" },
+    });
+
+    await page.goto("/");
+    const legend = page.getByRole("list", { name: "Calendar legend" });
+    await expect(legend.getByText("Applied", { exact: true })).toBeVisible();
+    // Panel has nothing booked, so it must not be advertised
+    await expect(legend.getByText("Panel", { exact: true })).toHaveCount(0);
+  });
+
+  test("every job row shows how it was added, manual included", async ({
+    page,
+  }) => {
+    await page.goto("/table");
+    const row = page.getByRole("row").filter({ hasText: "Platform Science" });
+    // seeded jobs are imports; the indicator must be present and specific
+    await expect(
+      row.getByRole("img", { name: /imported from a tracker file/i }),
+    ).toBeVisible();
+
+    // a hand-added job gets its own icon rather than a blank space
+    await page.getByRole("button", { name: /New job/ }).click();
+    await page.getByLabel("Company *").fill("Manual Source Co");
+    await page.getByLabel("Role *").fill("Platform Engineer");
+    await page.getByRole("button", { name: "Add job", exact: true }).click();
+    const manualRow = page
+      .getByRole("row")
+      .filter({ hasText: "Manual Source Co" });
+    await expect(
+      manualRow.getByRole("img", { name: /added manually/i }),
+    ).toBeVisible();
+  });
+
   test("Import dialog preview table stays within the dialog's bounds (regression: sm:max-w-sm cascade beat an unprefixed max-w-2xl override, clipping the preview table)", async ({
     page,
     request,

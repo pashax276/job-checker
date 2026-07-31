@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { legendKinds } from "@/components/month-calendar";
 import { createDb, migrateDb, type DB } from "@/db/client";
 import { jobCreateSchema } from "@/lib/schemas";
+import type { CalendarEvent } from "@/lib/types";
 import { createJob } from "@/server/jobs";
 import { upsertStageSchedule } from "@/server/schedule";
 import { getStats } from "@/server/stats";
@@ -71,5 +73,37 @@ describe("stats calendar events", () => {
     );
     upsertStageSchedule(db, job.id, "Panel", "2026-07-19");
     expect(getStats(db, TODAY).events).toHaveLength(1);
+  });
+});
+
+describe("calendar legend", () => {
+  const event = (kind: string): CalendarEvent => ({
+    kind,
+    date: "2026-07-20",
+    jobId: "j",
+    company: "C",
+  });
+
+  it("lists exactly the kinds actually plotted, in pipeline order", () => {
+    expect(
+      legendKinds([event("Follow-up"), event("Applied"), event("Screen")]),
+    ).toEqual(["Applied", "Screen", "Follow-up"]);
+  });
+
+  it("includes Applied — the regression: the old hardcoded legend omitted it, leaving its blue dots undecodable", () => {
+    expect(legendKinds([event("Applied")])).toEqual(["Applied"]);
+  });
+
+  it("omits kinds with no events — the old legend advertised Panel even when nothing was booked at that stage", () => {
+    expect(legendKinds([event("Screen")])).not.toContain("Panel");
+  });
+
+  it("covers every schedulable stage, not just the four that were hardcoded", () => {
+    const all = ["Applied", "Screen", "Assessment", "HM Interview", "Panel", "Offer"];
+    expect(legendKinds(all.map(event))).toEqual(all);
+  });
+
+  it("is empty when there is nothing on the calendar", () => {
+    expect(legendKinds([])).toEqual([]);
   });
 });

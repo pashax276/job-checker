@@ -1,6 +1,21 @@
 import { z } from "zod";
 
-export const ATS_TYPES = ["greenhouse", "lever", "ashby"] as const;
+// Boards this app can poll directly. Every entry must expose a public,
+// unauthenticated JSON endpoint that returns the posting *description* in
+// the list response — the description gate (filters.descriptionMatches)
+// rejects anything without one, so an ATS whose list response omits it
+// would contribute zero leads no matter how many boards you added.
+// Verified as not qualifying: SmartRecruiters and Rippling (list responses
+// carry no description — each posting needs a second detail fetch),
+// BambooHR (serves HTML, no JSON board API), Workday (no public per-tenant
+// board API; covered via the Google Alerts RSS path instead).
+export const ATS_TYPES = [
+  "greenhouse",
+  "lever",
+  "ashby",
+  "workable",
+  "recruitee",
+] as const;
 
 export const watchlistCreateSchema = z.strictObject({
   displayName: z.string().trim().min(1, "Company name is required"),
@@ -41,7 +56,11 @@ export const DEFAULT_ALERT_QUERIES: AlertQuery[] = [
   { label: "Greenhouse", query: `site:boards.greenhouse.io ${QUERY_BODY}` },
   { label: "Lever", query: `site:jobs.lever.co ${QUERY_BODY}` },
   { label: "Ashby", query: `site:jobs.ashbyhq.com ${QUERY_BODY}` },
+  { label: "Workable", query: `site:apply.workable.com ${QUERY_BODY}` },
+  { label: "Recruitee", query: `site:recruitee.com ${QUERY_BODY}` },
   { label: "Workday", query: `site:myworkdayjobs.com ${QUERY_BODY}` },
+  // No public per-tenant board API, so these stay RSS-only.
+  { label: "SmartRecruiters", query: `site:jobs.smartrecruiters.com ${QUERY_BODY}` },
 ];
 
 export const leadActionSchema = z.strictObject({

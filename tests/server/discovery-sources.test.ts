@@ -4,6 +4,8 @@ import {
   normalizeAshby,
   normalizeGreenhouse,
   normalizeLever,
+  normalizeRecruitee,
+  normalizeWorkable,
 } from "@/server/discovery/ats";
 import {
   companySlugFromUrl,
@@ -136,5 +138,104 @@ describe("google alerts rss helpers", () => {
       atsType: "lever",
       company: "acme",
     });
+  });
+});
+
+describe("workable + recruitee boards", () => {
+  it("builds their public endpoints (workable needs details=true for descriptions)", () => {
+    expect(buildBoardUrl("workable", "acme")).toBe(
+      "https://apply.workable.com/api/v1/widget/accounts/acme?details=true",
+    );
+    expect(buildBoardUrl("recruitee", "acme")).toBe(
+      "https://acme.recruitee.com/api/offers/",
+    );
+  });
+
+  it("normalizes a workable payload, composing its split location fields", () => {
+    // shape mirrors the live apply.workable.com widget response
+    const [candidate] = normalizeWorkable(
+      {
+        jobs: [
+          {
+            title: "Senior Platform Engineer",
+            url: "https://apply.workable.com/j/186545F8C1",
+            city: "San Diego",
+            state: "CA",
+            country: "United States",
+            telecommuting: true,
+            description: "<p>We run on &lt;b&gt;AWS&lt;/b&gt;</p>",
+          },
+        ],
+      },
+      "Acme",
+    );
+    expect(candidate).toMatchObject({
+      url: "https://apply.workable.com/j/186545F8C1",
+      title: "Senior Platform Engineer",
+      company: "Acme",
+      atsType: "workable",
+    });
+    // telecommuting must surface as the word "Remote", or classifyLocation
+    // can never resolve a remote-US role
+    expect(candidate.location).toBe("Remote, San Diego, CA, United States");
+    expect(candidate.description).toContain("<b>AWS</b>");
+  });
+
+  it("skips workable entries missing a title or a usable url", () => {
+    expect(
+      normalizeWorkable(
+        { jobs: [{ title: "No URL" }, { url: "https://x/y" }] },
+        "Acme",
+      ),
+    ).toEqual([]);
+  });
+
+  it("normalizes a recruitee payload, folding requirements into the description", () => {
+    // AWS frequently appears only in Recruitee's separate requirements field,
+    // which the description gate would otherwise never see
+    const [candidate] = normalizeRecruitee(
+      {
+        offers: [
+          {
+            title: "Staff SRE",
+            careers_url: "https://acme.recruitee.com/o/staff-sre",
+            location: "United States",
+            remote: true,
+            description: "<p>Join us</p>",
+            requirements: "<p>5 years AWS</p>",
+          },
+        ],
+      },
+      "Acme",
+    );
+    expect(candidate).toMatchObject({
+      url: "https://acme.recruitee.com/o/staff-sre",
+      title: "Staff SRE",
+      atsType: "recruitee",
+    });
+    expect(candidate.description).toContain("AWS");
+    expect(candidate.location).toBe("Remote, United States");
+  });
+
+  it("detects both from a pasted posting URL", () => {
+    expect(detectAtsType("https://apply.workable.com/j/186545F8C1")).toBe(
+      "workable",
+    );
+    expect(detectAtsType("https://acme.recruitee.com/o/staff-sre")).toBe(
+      "recruitee",
+    );
+  });
+
+  it("recovers a company slug only where the URL actually carries one", () => {
+    expect(companySlugFromUrl("https://acme.recruitee.com/o/staff-sre")).toBe(
+      "acme",
+    );
+    expect(companySlugFromUrl("https://apply.workable.com/acme/j/ABC123")).toBe(
+      "acme",
+    );
+    // the short /j/{shortcode} form has no account in it — must not invent one
+    expect(
+      companySlugFromUrl("https://apply.workable.com/j/186545F8C1"),
+    ).toBeNull();
   });
 });

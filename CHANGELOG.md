@@ -4,6 +4,48 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.8.0] - 2026-07-31
+
+### Fixed
+- **Calendar legend didn't match the calendar.** The legend was a hardcoded
+  four (Screen / HM Interview / Panel / Follow-up) while the grid plots any
+  of six schedulable stages plus follow-ups. So **Applied** — by far the
+  most common booked stage (19 of 39 events in real data) — was plotted in
+  blue with nothing in the legend to decode it, while **Panel** was
+  advertised with a colour despite nothing being booked at that stage. The
+  dot colours themselves were always correct; only the legend lied. It is
+  now derived from the events actually present, in pipeline order, so it
+  can't drift from the grid again. The legend is also a labelled list now,
+  so screen readers (and tests) can address it.
+
+### Added
+- **Two more ATS board types for the watchlist: Workable and Recruitee.**
+  Both expose a public, unauthenticated JSON endpoint that returns each
+  posting's full description in the list response — the same one-request
+  shape Greenhouse/Lever/Ashby use, so they drop straight into the existing
+  poll-and-filter pipeline. Verified against live boards before shipping
+  (Workable returned 29 postings, all with descriptions and locations).
+  Workable splits location across city/state/country with a separate
+  `telecommuting` flag, so it's composed into one string the location
+  classifier can actually read; Recruitee keeps requirements in their own
+  field, folded into the description so the AWS gate can see them.
+  Pasted Workable/Recruitee posting URLs are now recognised too.
+  - Deliberately *not* added, having tested them: **SmartRecruiters** and
+    **Rippling** (their list responses carry no description, and the
+    description gate rejects anything without one — they'd contribute zero
+    leads without an extra detail fetch per posting, 769 of them for
+    Rippling's board alone), **BambooHR** (serves HTML, no JSON board API),
+    and **Workday** (no public per-tenant board API). SmartRecruiters and
+    Workday are covered by the Google Alerts RSS path instead, which now
+    ships a default query for each.
+- **A consistent "how did this job get here" icon** across table, board,
+  and drawer: radar for Run-discovery finds, download for tracker imports,
+  pen for hand-added. Previously the board had icons, the table had a text
+  badge tucked into the aging column, and the drawer showed nothing —
+  and **manual had no indicator anywhere**, which made "added by hand"
+  indistinguishable from "this view forgot to render it". One shared
+  component now, so the three views can't drift apart.
+
 ## [1.7.0] - 2026-07-24
 
 ### Added

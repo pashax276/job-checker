@@ -24,7 +24,8 @@ export type JobDetail = JobRecord & {
   schedule: StageScheduleRecord[];
 };
 
-export type JobSource = "manual" | "import" | "discovery";
+export type { JobSource } from "@/lib/types";
+import type { JobSource } from "@/lib/types";
 
 export function createJob(
   db: DB,

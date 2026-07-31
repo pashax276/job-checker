@@ -24,9 +24,8 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
-import { DueBadge, TierBadge } from "@/components/badges";
+import { DueBadge, SourceIcon, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -201,7 +200,16 @@ function TableView() {
           </span>
         ),
       },
-      { accessorKey: "company", header: "Company" },
+      {
+        accessorKey: "company",
+        header: "Company",
+        cell: ({ row }) => (
+          <span className="flex items-center gap-1.5">
+            <SourceIcon source={row.original.source} />
+            <span className="min-w-0 truncate">{row.original.company}</span>
+          </span>
+        ),
+      },
       { accessorKey: "role", header: "Role" },
       {
         accessorKey: "priorityTier",
@@ -283,11 +291,6 @@ function TableView() {
               <span className="font-data text-xs text-muted-foreground">
                 {days === 0 ? "today" : `${days}d`}
               </span>
-              {job.source !== "manual" ? (
-                <Badge variant="outline" className="font-data px-1 text-[9px]">
-                  {job.source === "discovery" ? "discovered" : "imported"}
-                </Badge>
-              ) : null}
             </span>
           );
         },

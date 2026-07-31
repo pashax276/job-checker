@@ -1,5 +1,9 @@
 import type { Status, Tier } from "@/lib/constants";
 
+/** How a job entered the tracker. Defined here (not in the server module)
+ * so client components can render it without importing server code. */
+export type JobSource = "manual" | "import" | "discovery";
+
 /** Client-side job shape (mirrors the jobs table; no drizzle imports). */
 export interface Job {
   id: string;
@@ -20,7 +24,7 @@ export interface Job {
   compEquity: string | null;
   resumeId: string | null;
   coverLetterId: string | null;
-  source: "manual" | "import" | "discovery";
+  source: JobSource;
   skillMatch: string | null;
   jdSnapshot: string | null;
   createdAt: string;
