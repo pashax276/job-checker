@@ -7,6 +7,13 @@ import { parseJsonImport } from "@/lib/json-import";
 import { jobPatchSchema, listQuerySchema } from "@/lib/schemas";
 import { parseTrackerWorkbook, type TrackerRow } from "@/lib/xlsx";
 import { createJob, listJobs, updateJob } from "@/server/jobs";
+import {
+  addRestoreCounts,
+  applyJobExtras,
+  EMPTY_RESTORE,
+  jobIdAvailable,
+  type RestoreCounts,
+} from "@/server/restore";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +28,11 @@ export interface ImportCommitResult {
   updated: number;
   skipped: number;
   errors: Array<{ index: number; error: string }>;
+  /** JSON backups carry more than the flat columns — what came back. */
+  documentsRestored: number;
+  prepStepsRestored: number;
+  /** Prep entries that weren't booked steps, so couldn't be restored. */
+  prepSkipped: number;
 }
 
 async function rowsFromFile(file: File): Promise<TrackerRow[]> {
@@ -81,7 +93,11 @@ export async function POST(request: Request): Promise<Response> {
   const preview = buildImportPreview(rows, existing);
 
   if (mode.data === "preview") {
-    return apiOk({ rows: preview });
+    // Extras hold full JD snapshots and resume text — megabytes across a real
+    // backup, and the browser never needs them. Commit re-reads the file.
+    return apiOk({
+      rows: preview.map(({ extras: _extras, ...row }) => row),
+    });
   }
 
   const result = commitImport(preview, decisions);
@@ -93,32 +109,54 @@ function commitImport(
   decisions: Record<string, "create" | "skip" | "update">,
 ): ImportCommitResult {
   const db = getDb();
-  const result: ImportCommitResult = {
-    created: 0,
-    updated: 0,
-    skipped: 0,
-    errors: [],
-  };
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let errors: Array<{ index: number; error: string }> = [];
+  let restored: RestoreCounts = EMPTY_RESTORE;
+
   for (const row of preview) {
     if (row.error !== null || row.input === null) {
-      result.errors = [...result.errors, { index: row.index, error: row.error ?? "invalid row" }];
+      errors = [...errors, { index: row.index, error: row.error ?? "invalid row" }];
       continue;
     }
     const decision =
       decisions[String(row.index)] ??
       (row.duplicateOfId !== null ? "skip" : "create");
     if (decision === "skip") {
-      result.skipped += 1;
+      skipped += 1;
       continue;
     }
+
+    let jobId: string;
     if (decision === "update" && row.duplicateOfId !== null) {
       const { id: _id, ...fields } = row.input;
       updateJob(db, row.duplicateOfId, jobPatchSchema.parse(fields));
-      result.updated += 1;
-      continue;
+      jobId = row.duplicateOfId;
+      updated += 1;
+    } else {
+      // Restoring a backup into an empty tracker keeps the original ids, so a
+      // repeat restore updates rather than duplicating.
+      const keepId =
+        row.extras?.id && jobIdAvailable(db, row.extras.id)
+          ? row.extras.id
+          : undefined;
+      jobId = createJob(db, { ...row.input, id: keepId }, new Date(), "import").id;
+      created += 1;
     }
-    createJob(db, { ...row.input, id: undefined }, new Date(), "import");
-    result.created += 1;
+
+    if (row.extras) {
+      restored = addRestoreCounts(restored, applyJobExtras(db, jobId, row.extras));
+    }
   }
-  return result;
+
+  return {
+    created,
+    updated,
+    skipped,
+    errors,
+    documentsRestored: restored.documents,
+    prepStepsRestored: restored.prepSteps,
+    prepSkipped: restored.prepSkipped,
+  };
 }

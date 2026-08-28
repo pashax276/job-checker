@@ -328,7 +328,8 @@ export default function DashboardPage() {
               <p className="pb-1 text-[10px] leading-tight text-muted-foreground">
                 Each job counts at the last stage it occupied — moving a card
                 backward corrects the funnel. Closed jobs (skipped/rejected)
-                credit the stage they dropped off at.
+                credit the stage they dropped off at, and are totalled again
+                below as terminal outcomes.
               </p>
               {stats.funnel.map((stage) => {
                 const total = stats.funnel[0]?.reached ?? 1;
@@ -359,6 +360,43 @@ export default function DashboardPage() {
                   </div>
                 );
               })}
+              {stats.terminal.length > 0 ? (
+                <div className="space-y-1 border-t pt-1.5">
+                  {stats.terminal.map((outcome) => {
+                    const total = stats.funnel[0]?.reached ?? 0;
+                    const width =
+                      total > 0 ? (outcome.count / total) * 100 : 0;
+                    return (
+                      <div
+                        key={outcome.status}
+                        className="flex items-center gap-2"
+                      >
+                        <span className="w-24 shrink-0 truncate text-[11px] text-muted-foreground">
+                          {outcome.status}
+                        </span>
+                        <span className="h-3 min-w-0 flex-1 rounded-sm bg-muted">
+                          <span
+                            className="block h-full rounded-sm"
+                            style={{
+                              width: `${width}%`,
+                              background: STATUS_VAR[outcome.status],
+                              minWidth: outcome.count > 0 ? 3 : 0,
+                            }}
+                          />
+                        </span>
+                        <span className="font-data w-8 shrink-0 text-right text-xs">
+                          {outcome.count}
+                        </span>
+                        <span className="font-data w-10 shrink-0 text-right text-[10px] text-muted-foreground">
+                          {outcome.share !== null
+                            ? `${Math.round(outcome.share * 100)}%`
+                            : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
               {stats.roundStats.length > 0 ? (
                 <div className="space-y-0.5 border-t pt-1.5">
                   {stats.roundStats.map((round) => {

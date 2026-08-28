@@ -118,6 +118,13 @@ export interface FunnelStage {
   conversion: number | null;
 }
 
+/** Terminal statuses, counted outside the forward flow. */
+export interface TerminalStage {
+  status: Status;
+  count: number;
+  share: number | null;
+}
+
 export interface CalendarEvent {
   date: string;
   jobId: string;
@@ -151,6 +158,7 @@ export interface Stats {
   overdue: OverdueItem[];
   aging: AgingItem[];
   funnel: FunnelStage[];
+  terminal: TerminalStage[];
   events: CalendarEvent[];
   trend: TrendPoint[];
   roundStats: RoundStat[];

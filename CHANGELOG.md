@@ -4,6 +4,78 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.11.0] - 2026-08-26
+
+### Fixed
+- **Importing a JSON backup silently destroyed most of the tracker.** Export
+  writes prep steps, embedded resume/cover-letter content, the JD snapshot,
+  the skill match and the structured comp split; import mapped every entry
+  through `jobToTrackerRow`, which walks the 11 flat spreadsheet columns and
+  nothing else. Everything outside those columns was read off disk and
+  dropped, so restoring a backup wiped every booked interview, every prep
+  note and question, every resume link and every captured posting - the exact
+  data the Prep page renders, which is why it came back empty. Reported as
+  "why no prep material available on prep page".
+
+  JSON entries now carry their rich fields pinned to the row (`import-extras`)
+  and a restore step (`server/restore`) writes them back once the job row
+  exists. Documents insert once and are shared by every job that referenced
+  them; stage rows upsert on `(jobId, stage)`, so a rebooked step moves rather
+  than duplicating. Original job ids are kept when free, making a repeat
+  restore an update instead of a second copy. Fields only overwrite when the
+  backup actually holds them, so a sparse backup can't blank existing data -
+  comp is the deliberate exception, since export composes base/bonus/equity
+  into the single "Comp Notes" column and restoring all four verbatim is what
+  un-composes it.
+
+  Prep entries that aren't booked steps (hand-authored `{title, type,
+  summary}` document lists) can't be restored; they're counted and reported
+  rather than swallowed. The import toast now names what came back and what
+  was skipped, so this can't fail quietly again. Covered end-to-end: seed a
+  rich job, export, wipe the database, re-import, assert every field returns.
+
+- **A failed write surfaced as a bare 500 with an empty body and no log line.**
+  Found when "Add job" started failing: Docker's VM disk had remounted
+  read-only (`ext4 ... emergency_ro`), SQLite refused every INSERT, and
+  `POST /api/jobs` had no catch around `createJob` — so the UI showed only
+  "Request failed with status 500" and the container log was completely
+  silent through a total write outage. That made an environmental fault look
+  like an application bug.
+
+  Two layers now. `withRouteErrors` wraps the job routes so an unexpected
+  throw is logged server-side with method and path and returned as a 500
+  envelope carrying the real reason, which puts "attempt to write a readonly
+  database" in front of the user instead of a status code. Domain errors the
+  routes already catch keep their own statuses — this is the backstop for
+  failures nobody enumerated. Separately, `onRequestError` in
+  `instrumentation.ts` logs every server-side error Next catches on any
+  route, wrapped or not, so a silent outage can't recur anywhere in the app.
+  Covered by tests that reproduce the refusal with SQLite's `query_only`
+  pragma rather than needing a sick filesystem.
+
+- **The funnel reported interviews that happened as if they never did.** A
+  closed job's only status-history row is its terminal status, which isn't in
+  `PIPELINE_FLOW`, so the funnel fell through to `dateApplied` and credited
+  Applied - three jobs that reached an HM interview and three that reached a
+  screen all read as cold applications. Booked interview steps now count as
+  evidence of the stage a closed job reached, taking whichever of history and
+  bookings got further. Deliberately ranked below the current-status branch,
+  so moving a live card backward still corrects the funnel.
+
+### Added
+- **Terminal outcomes on the conversion funnel.** The flow bars stop at Offer
+  by design, so the card never showed where the other ~80% of the pipeline
+  went. Rejected and Skipped now render as their own bars below a rule, using
+  the same denominator as the bars above so both halves read on one scale. A
+  rejected job is deliberately counted twice - once at the stage it died in,
+  once as a rejection. Rejected leads, being the signal worth reading before
+  self-selected skips; a test keeps that ordered list in sync with the set the
+  active-pipeline filter uses.
+- JSON export now records each document's `mimeType`, so future backups don't
+  have to infer it from the file name. Note the original file bytes are still
+  not in the export: a restored resume keeps its extracted text, skills and
+  bullets, but downloads as "stored file is missing" until re-uploaded.
+
 ## [1.10.0] - 2026-07-31
 
 ### Added

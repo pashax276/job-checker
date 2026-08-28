@@ -1,7 +1,10 @@
+import os from "node:os";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getDb, runMigrations } from "@/db/client";
 import { jobCreateSchema, listQuerySchema } from "@/lib/schemas";
-import { createJob, listJobs } from "@/server/jobs";
+import { createDocument, getDocument } from "@/server/documents";
+import { createJob, listJobs, updateJob } from "@/server/jobs";
+import { addQuestion, listSchedule, upsertStageSchedule } from "@/server/schedule";
 import * as importRoute from "@/app/api/import/route";
 import * as exportRoute from "@/app/api/export/route";
 import * as icsRoute from "@/app/api/export/ics/route";
@@ -216,5 +219,199 @@ describe("GET /api/export", () => {
     const text = await res.text();
     expect(text).toContain("BEGIN:VCALENDAR");
     expect(text).toContain("Acme");
+  });
+});
+
+// The bug this guards: JSON export writes prep/documents/jdSnapshot/skillMatch,
+// but import used to map through the 11 flat tracker columns only — so
+// restoring a backup silently wiped every booked step, every prep note, every
+// resume link and every JD snapshot.
+describe("JSON export → import is a lossless backup round-trip", () => {
+  const dir = `${os.tmpdir()}/import-restore-${process.pid}`;
+
+  async function seedRichJob(): Promise<string> {
+    const db = getDb();
+    const id = createJob(
+      db,
+      jobCreateSchema.parse({
+        company: "PostHog",
+        role: "Site Reliability Engineer",
+        status: "Screen",
+        compBase: "246383-269724",
+        compEquity: "equity",
+        compNotes: "Formula-driven, no negotiation room",
+      }),
+    ).id;
+    const resume = await createDocument(
+      db,
+      {
+        kind: "resume",
+        name: "Resume V2",
+        fileName: "resume.txt",
+        mimeType: "text/plain",
+        data: Buffer.from("Senior Platform / DevOps Engineer. AWS, Kubernetes."),
+      },
+      dir,
+    );
+    updateJob(db, id, { resumeId: resume.id });
+    db.$client
+      .prepare("UPDATE jobs SET skill_match = ?, jd_snapshot = ? WHERE id = ?")
+      .run(
+        JSON.stringify({
+          score: 0.75,
+          matched: ["AWS"],
+          missing: ["SQL"],
+          checkedAt: "2026-08-23T07:03:21.417Z",
+        }),
+        "Site Reliability Engineer - PostHog. Karpenter, Cilium, ArgoCD.",
+        id,
+      );
+    upsertStageSchedule(db, id, "Screen", "2026-08-27", "# Thursday\nThree beats.");
+    addQuestion(db, id, "Screen", "How do you place level and step?");
+    addQuestion(db, id, "Screen", "Walk me through your CV", "interviewer");
+    return id;
+  }
+
+  async function exportJson(): Promise<string> {
+    const res = await exportRoute.GET(
+      new Request("http://test/api/export?format=json"),
+    );
+    return res.text();
+  }
+
+  async function importJson(
+    json: string,
+    decisions: Record<number, string> = {},
+  ): Promise<Envelope<Record<string, number>>> {
+    const form = new FormData();
+    form.set("file", new File([json], "backup.json", { type: "application/json" }));
+    form.set("mode", "commit");
+    form.set("decisions", JSON.stringify(decisions));
+    const res = await importRoute.POST(
+      new Request("http://test/api/import", { method: "POST", body: form }),
+    );
+    return (await res.json()) as Envelope<Record<string, number>>;
+  }
+
+  beforeEach(() => {
+    getDb().$client.prepare("DELETE FROM documents").run();
+  });
+
+  it("restores prep steps, notes and questions into a wiped database", async () => {
+    await seedRichJob();
+    const backup = await exportJson();
+
+    const raw = getDb().$client;
+    raw.prepare("DELETE FROM status_history").run();
+    raw.prepare("DELETE FROM jobs").run();
+    raw.prepare("DELETE FROM documents").run();
+    expect(raw.prepare("SELECT COUNT(*) c FROM stage_schedule").get()).toMatchObject({ c: 0 });
+
+    const body = await importJson(backup);
+    expect(body.data.created).toBe(1);
+
+    const restored = listJobs(getDb(), listQuerySchema.parse({}))[0];
+    const steps = listSchedule(getDb(), restored.id);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatchObject({
+      stage: "Screen",
+      scheduledFor: "2026-08-27",
+      prepNotes: "# Thursday\nThree beats.",
+    });
+    const questions = JSON.parse(steps[0].questions!) as Array<{
+      text: string;
+      askedBy: string;
+    }>;
+    expect(questions).toHaveLength(2);
+    expect(questions[1].askedBy).toBe("interviewer");
+  });
+
+  it("restores the JD snapshot, skill match, comp fields and resume link", async () => {
+    await seedRichJob();
+    const backup = await exportJson();
+    const raw = getDb().$client;
+    raw.prepare("DELETE FROM status_history").run();
+    raw.prepare("DELETE FROM jobs").run();
+    raw.prepare("DELETE FROM documents").run();
+
+    await importJson(backup);
+    const restored = listJobs(getDb(), listQuerySchema.parse({}))[0];
+
+    expect(restored.jdSnapshot).toContain("Karpenter");
+    expect(restored.skillMatch).toContain('"score":0.75');
+    expect(restored.compBase).toBe("246383-269724");
+    expect(restored.compEquity).toBe("equity");
+    expect(restored.compNotes).toBe("Formula-driven, no negotiation room");
+    expect(restored.resumeId).not.toBeNull();
+
+    const doc = getDocument(getDb(), restored.resumeId!)!;
+    expect(doc.name).toBe("Resume V2");
+    expect(doc.extractedText).toContain("Senior Platform");
+    expect(JSON.parse(doc.skills!)).toContain("AWS");
+  });
+
+  it("enriches an existing job on the update path instead of duplicating it", async () => {
+    await seedRichJob();
+    const backup = await exportJson();
+
+    // Simulate the lossy re-import that caused this: flat row only.
+    const raw = getDb().$client;
+    raw.prepare("DELETE FROM status_history").run();
+    raw.prepare("DELETE FROM jobs").run();
+    raw.prepare("DELETE FROM documents").run();
+    const flat = createJob(
+      getDb(),
+      jobCreateSchema.parse({
+        company: "PostHog",
+        role: "Site Reliability Engineer",
+      }),
+    );
+    expect(flat.jdSnapshot).toBeNull();
+
+    const body = await importJson(backup, { 0: "update" });
+    expect(body.data.updated).toBe(1);
+    expect(listJobs(getDb(), listQuerySchema.parse({}))).toHaveLength(1);
+
+    const healed = listJobs(getDb(), listQuerySchema.parse({}))[0];
+    expect(healed.id).toBe(flat.id);
+    expect(healed.jdSnapshot).toContain("Karpenter");
+    expect(listSchedule(getDb(), flat.id)).toHaveLength(1);
+  });
+
+  it("reports what it restored so a silent data loss can't happen again", async () => {
+    await seedRichJob();
+    const backup = await exportJson();
+    const raw = getDb().$client;
+    raw.prepare("DELETE FROM status_history").run();
+    raw.prepare("DELETE FROM jobs").run();
+    raw.prepare("DELETE FROM documents").run();
+
+    const body = await importJson(backup);
+    expect(body.data.prepStepsRestored).toBe(1);
+    expect(body.data.documentsRestored).toBe(1);
+  });
+
+  it("still imports a job whose prep entries aren't booked steps", async () => {
+    // Hand-authored { title, type, summary } prep — can't be restored, must
+    // not fail the row.
+    const json = JSON.stringify([
+      {
+        company: "PostHog",
+        role: "SRE",
+        prep: [{ title: "PostHog_Thursday.md", type: "brief", summary: "..." }],
+      },
+    ]);
+    const body = await importJson(json);
+    expect(body.data.created).toBe(1);
+    expect(body.data.prepSkipped).toBe(1);
+  });
+
+  it("leaves plain csv imports untouched by the restore path", async () => {
+    const csv = [CSV_HEADER, "CsvCo,SRE,,,,,,,,,"].join("\n");
+    const res = await importRoute.POST(importRequest(csv, "commit"));
+    const body = (await res.json()) as Envelope<Record<string, number>>;
+    expect(body.data.created).toBe(1);
+    expect(body.data.prepStepsRestored).toBe(0);
+    expect(body.data.documentsRestored).toBe(0);
   });
 });

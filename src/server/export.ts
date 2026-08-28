@@ -12,6 +12,7 @@ export interface ExportedDocument {
   kind: DocumentKind;
   name: string;
   fileName: string;
+  mimeType: string;
   skills: string[];
   bullets: string[];
   experience: ExperienceEntry[];
@@ -38,6 +39,7 @@ function toExportedDocument(record: DocumentRecord): ExportedDocument {
     kind: record.kind as DocumentKind,
     name: record.name,
     fileName: record.fileName,
+    mimeType: record.mimeType,
     skills: JSON.parse(record.skills ?? "[]") as string[],
     bullets: JSON.parse(record.bullets ?? "[]") as string[],
     experience: JSON.parse(record.experience ?? "[]") as ExperienceEntry[],

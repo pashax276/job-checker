@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getDb, runMigrations } from "@/db/client";
 import * as jobsRoute from "@/app/api/jobs/route";
 import * as jobRoute from "@/app/api/jobs/[id]/route";
@@ -173,5 +173,37 @@ describe("health endpoints", () => {
 
   it("readyz returns 200 once migrated", async () => {
     expect((await readyzRoute.GET()).status).toBe(200);
+  });
+});
+
+// Reproduces the incident: Docker's VM disk remounted read-only, SQLite
+// refused the INSERT, and POST /api/jobs had no catch — so "Add job" surfaced
+// a bare "Request failed with status 500" with an empty body and not one line
+// in the container log. SQLite's query_only pragma reproduces that refusal
+// faithfully, without needing a sick filesystem.
+describe("POST /api/jobs when the database cannot be written", () => {
+  const readOnly = (on: boolean) =>
+    getDb().$client.pragma(`query_only = ${on ? "ON" : "OFF"}`);
+
+  afterEach(() => readOnly(false));
+
+  it("answers with a structured error instead of an empty 500", async () => {
+    readOnly(true);
+    const res = await post({ company: "Blocked Co", role: "SRE" });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as Envelope<null>;
+    expect(body.success).toBe(false);
+    expect(body.data).toBeNull();
+    expect(body.error).toMatch(/readonly|read-only/i);
+  });
+
+  it("still creates normally once the database is writable again", async () => {
+    readOnly(true);
+    await post({ company: "Blocked Co", role: "SRE" });
+    readOnly(false);
+    const res = await post({ company: "Unblocked Co", role: "SRE" });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Envelope<{ company: string }>;
+    expect(body.data.company).toBe("Unblocked Co");
   });
 });

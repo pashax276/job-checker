@@ -1,4 +1,5 @@
 import { toLocalIsoDate } from "@/lib/dates";
+import { attachedExtras, type JobExtras } from "@/lib/import-extras";
 import { jobCreateSchema, type JobCreate } from "@/lib/schemas";
 import type { TrackerRow } from "@/lib/xlsx";
 import type { Job } from "@/lib/types";
@@ -54,6 +55,12 @@ export interface ImportPreviewRow {
   raw: Record<string, unknown>;
   duplicateOfId: string | null;
   error: string | null;
+  /**
+   * Rich fields a JSON backup carries beyond the flat tracker columns (prep
+   * steps, documents, JD snapshot, skill match, comp split). Null for csv and
+   * xlsx rows, which have no such fields to begin with.
+   */
+  extras: JobExtras | null;
 }
 
 /** Validate rows and flag duplicates against the existing pipeline. */
@@ -66,6 +73,7 @@ export function buildImportPreview(
   );
   return rows.map((row, index) => {
     const mapped = trackerRowToJobInput(row);
+    const extras = attachedExtras(row);
     const parsed = jobCreateSchema.safeParse(mapped);
     if (!parsed.success) {
       return {
@@ -76,6 +84,7 @@ export function buildImportPreview(
         error: parsed.error.issues
           .map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message))
           .join("; "),
+        extras,
       };
     }
     return {
@@ -85,6 +94,7 @@ export function buildImportPreview(
       duplicateOfId:
         byKey.get(duplicateKey(parsed.data.company, parsed.data.role)) ?? null,
       error: null,
+      extras,
     };
   });
 }

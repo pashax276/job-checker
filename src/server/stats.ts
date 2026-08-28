@@ -3,6 +3,7 @@ import type { DB } from "@/db/client";
 import { jobs, leads, stageSchedule, statusHistory } from "@/db/schema";
 import {
   ACTIVE_EXCLUDED_STATUSES,
+  TERMINAL_STATUSES,
   PIPELINE_FLOW,
   STATUSES,
   type Status,
@@ -32,6 +33,17 @@ export interface FunnelStage {
   reached: number;
   /** reached / previous stage's reached; null for the first stage. */
   conversion: number | null;
+}
+
+/**
+ * Where the pipeline actually ends. The flow bars stop at Offer by design, so
+ * without these the card never shows the terminal statuses most jobs land in.
+ */
+export interface TerminalStage {
+  status: Status;
+  count: number;
+  /** count / every job that entered the funnel; null on an empty tracker. */
+  share: number | null;
 }
 
 export interface CalendarEvent {
@@ -68,6 +80,7 @@ export interface Stats {
   overdue: OverdueItem[];
   aging: AgingItem[];
   funnel: FunnelStage[];
+  terminal: TerminalStage[];
   events: CalendarEvent[];
   trend: TrendPoint[];
   roundStats: RoundStat[];
@@ -193,7 +206,22 @@ export function getStats(db: DB, today = new Date()): Stats {
     .from(statusHistory)
     .orderBy(asc(statusHistory.changedAt))
     .all();
+  // A booked interview is hard evidence a job reached that stage. It matters
+  // for jobs that closed: their only history row is the terminal status, which
+  // isn't in the flow, so without this a job that reached an HM interview and
+  // was then rejected reported as if it never got past Applied.
+  const bookedStages = db
+    .select({ jobId: stageSchedule.jobId, stage: stageSchedule.stage })
+    .from(stageSchedule)
+    .all();
   const flowIndex = new Map(PIPELINE_FLOW.map((s, i) => [s as string, i]));
+  const furthestBooked = new Map<string, number>();
+  for (const row of bookedStages) {
+    const idx = flowIndex.get(row.stage);
+    if (idx === undefined) continue;
+    const best = furthestBooked.get(row.jobId);
+    if (best === undefined || idx > best) furthestBooked.set(row.jobId, idx);
+  }
   // Chronological scan: the map ends up holding each job's LAST in-flow stage.
   const lastFlowStage = new Map<string, number>();
   for (const row of historyStages) {
@@ -209,11 +237,13 @@ export function getStats(db: DB, today = new Date()): Stats {
       // Skipped without clearing a dateApplied set from an earlier status.
       return current;
     }
+    // Closed job: whichever of its history and its booked interviews got
+    // further. Deliberately below the current-status branch, so moving a live
+    // card backward still corrects the funnel.
     const last = lastFlowStage.get(job.id);
-    if (last !== undefined) {
-      // Skipped/Rejected with real flow history: the last stage held
-      // before closing, e.g. Evaluating -> Applied -> Rejected.
-      return last;
+    const booked = furthestBooked.get(job.id);
+    if (last !== undefined || booked !== undefined) {
+      return Math.max(last ?? 0, booked ?? 0);
     }
     // No current-status or historical flow signal at all — a bare
     // history-less import row (e.g. created straight into "Rejected" with
@@ -236,6 +266,16 @@ export function getStats(db: DB, today = new Date()): Stats {
           : null,
     };
   }
+
+  // Terminal outcomes sit outside PIPELINE_FLOW, so they're counted straight
+  // off current status — a job is rejected or it isn't, independent of how far
+  // it got. Share is of the same denominator as the bars above (every job that
+  // entered the funnel) so the two read on one scale.
+  const entered = funnel[0]?.reached ?? 0;
+  const terminal: TerminalStage[] = TERMINAL_STATUSES.map((status) => {
+    const count = allJobs.filter((j) => j.status === status).length;
+    return { status, count, share: entered > 0 ? count / entered : null };
+  });
 
   // Calendar events: every booked stage date (past ones included — the
   // month grid shows history) plus active jobs' follow-ups, soonest first.
@@ -353,6 +393,7 @@ export function getStats(db: DB, today = new Date()): Stats {
     overdue,
     aging,
     funnel,
+    terminal,
     events,
     trend,
     roundStats,

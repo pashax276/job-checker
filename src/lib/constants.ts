@@ -28,6 +28,12 @@ export const DEFAULT_TIER: Tier = "3 - Mid";
 // Statuses excluded from the "active pipeline" count (tier must also not be Closed).
 export const ACTIVE_EXCLUDED_STATUSES: readonly Status[] = ["Skipped", "Rejected"];
 
+// The same terminal set, in the order the funnel card shows it: a rejection is
+// the signal worth reading first, a skip is self-selected. Kept separate from
+// ACTIVE_EXCLUDED_STATUSES because that one is a filter set where order is
+// meaningless; a test asserts the two stay in sync.
+export const TERMINAL_STATUSES: readonly Status[] = ["Rejected", "Skipped"];
+
 // Forward path through the pipeline (excludes the terminal Skipped/Rejected).
 export const PIPELINE_FLOW: readonly Status[] = [
   "Evaluating",

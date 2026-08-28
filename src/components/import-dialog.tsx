@@ -71,6 +71,9 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           updated?: number;
           skipped?: number;
           errors?: Array<{ index: number; error: string }>;
+          documentsRestored?: number;
+          prepStepsRestored?: number;
+          prepSkipped?: number;
         } | null;
         error: string | null;
       };
@@ -80,10 +83,26 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
       if (mode === "preview") {
         setRows(body.data.rows ?? []);
       } else {
-        const { created = 0, updated = 0, skipped = 0, errors = [] } = body.data;
+        const {
+          created = 0,
+          updated = 0,
+          skipped = 0,
+          errors = [],
+          documentsRestored = 0,
+          prepStepsRestored = 0,
+          prepSkipped = 0,
+        } = body.data;
+        const restored = [
+          prepStepsRestored ? `${prepStepsRestored} prep step(s)` : null,
+          documentsRestored ? `${documentsRestored} document(s)` : null,
+        ].filter(Boolean);
         toast.success(
           `Import complete: ${created} created, ${updated} updated, ${skipped} skipped` +
-            (errors.length ? `, ${errors.length} failed` : ""),
+            (errors.length ? `, ${errors.length} failed` : "") +
+            (restored.length ? ` — restored ${restored.join(" and ")}` : "") +
+            (prepSkipped
+              ? `; ${prepSkipped} prep entr(y/ies) weren't booked steps and were skipped`
+              : ""),
         );
         await qc.invalidateQueries();
         close(false);

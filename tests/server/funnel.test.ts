@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, migrateDb, type DB } from "@/db/client";
+import {
+  ACTIVE_EXCLUDED_STATUSES,
+  TERMINAL_STATUSES,
+} from "@/lib/constants";
 import { jobCreateSchema, jobPatchSchema } from "@/lib/schemas";
 import { createJob, updateJob } from "@/server/jobs";
+import { upsertStageSchedule } from "@/server/schedule";
 import { getStats } from "@/server/stats";
 
 const TODAY = new Date(2026, 6, 18, 12, 0, 0);
@@ -155,5 +160,178 @@ describe("stats funnel", () => {
     expect(screen.reached).toBe(1);
     expect(screen.conversion).toBeCloseTo(1 / 3);
     expect(funnel[0].conversion).toBeNull();
+  });
+});
+
+// The flow bars stop at Offer by design, so the card never showed where the
+// other ~80% of the pipeline actually went.
+describe("stats terminal outcomes", () => {
+  const terminalOf = () =>
+    Object.fromEntries(
+      getStats(db, TODAY).terminal.map((t) => [t.status, t]),
+    );
+
+  it("counts rejected and skipped jobs as their own terminal stages", () => {
+    createJob(db, jobCreateSchema.parse({ company: "A", role: "R" }));
+    createJob(
+      db,
+      jobCreateSchema.parse({ company: "B", role: "R", status: "Rejected" }),
+    );
+    createJob(
+      db,
+      jobCreateSchema.parse({ company: "C", role: "R", status: "Rejected" }),
+    );
+    createJob(
+      db,
+      jobCreateSchema.parse({ company: "D", role: "R", status: "Skipped" }),
+    );
+    const terminal = terminalOf();
+    expect(terminal.Rejected.count).toBe(2);
+    expect(terminal.Skipped.count).toBe(1);
+  });
+
+  it("shares are of every job that entered the funnel, matching the bars above", () => {
+    for (const company of ["A", "B", "C", "D"]) {
+      createJob(
+        db,
+        jobCreateSchema.parse({
+          company,
+          role: "R",
+          status: company === "A" ? "Applied" : "Rejected",
+        }),
+      );
+    }
+    const stats = getStats(db, TODAY);
+    const rejected = stats.terminal.find((t) => t.status === "Rejected")!;
+    expect(stats.funnel[0].reached).toBe(4);
+    expect(rejected.count).toBe(3);
+    expect(rejected.share).toBeCloseTo(0.75);
+  });
+
+  it("reports both statuses even when neither has happened yet", () => {
+    createJob(db, jobCreateSchema.parse({ company: "A", role: "R" }));
+    const terminal = terminalOf();
+    expect(terminal.Rejected.count).toBe(0);
+    expect(terminal.Skipped.count).toBe(0);
+    expect(terminal.Rejected.share).toBe(0);
+  });
+
+  it("has no share to report on an empty tracker", () => {
+    expect(getStats(db, TODAY).terminal.every((t) => t.share === null)).toBe(true);
+  });
+
+  it("counts a rejection regardless of how far the job got", () => {
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "Deep", role: "R", status: "Applied" }),
+    );
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "HM Interview" }));
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Rejected" }));
+    // Still credits HM Interview in the flow above...
+    expect(getStats(db, TODAY).funnel.find((f) => f.status === "HM Interview")!.reached).toBe(1);
+    // ...and shows up once as a rejection below.
+    expect(terminalOf().Rejected.count).toBe(1);
+  });
+});
+
+describe("terminal status list", () => {
+  it("covers exactly the statuses excluded from the active pipeline", () => {
+    expect([...TERMINAL_STATUSES].sort()).toEqual(
+      [...ACTIVE_EXCLUDED_STATUSES].sort(),
+    );
+  });
+
+  it("leads with Rejected — the signal worth reading before self-selected skips", () => {
+    expect(TERMINAL_STATUSES[0]).toBe("Rejected");
+    expect(getStats(db, TODAY).terminal[0].status).toBe("Rejected");
+  });
+});
+
+// Most rejections arrive by email straight after applying, never reaching a
+// recruiter screen — and the funnel showed that correctly. What it missed was
+// the opposite case: a job that got as far as an HM interview, then closed.
+// Its only history row is the terminal status, which isn't in the flow, so it
+// fell back to dateApplied and reported as if it never got past Applied.
+describe("booked steps as evidence of stages reached", () => {
+  const reachedOf = () =>
+    Object.fromEntries(
+      getStats(db, TODAY).funnel.map((f) => [f.status, f.reached]),
+    );
+
+  const closedJob = (company: string, status: "Rejected" | "Skipped") =>
+    createJob(
+      db,
+      jobCreateSchema.parse({
+        company,
+        role: "R",
+        status,
+        dateApplied: "2026-06-01",
+      }),
+    );
+
+  it("credits the furthest stage actually booked, not just Applied", () => {
+    const job = closedJob("Incode", "Rejected");
+    upsertStageSchedule(db, job.id, "Applied", "2026-07-01");
+    upsertStageSchedule(db, job.id, "Screen", "2026-07-09");
+    upsertStageSchedule(db, job.id, "HM Interview", "2026-07-16");
+    const reached = reachedOf();
+    expect(reached.Applied).toBe(1);
+    expect(reached.Screen).toBe(1);
+    expect(reached["HM Interview"]).toBe(1);
+    expect(reached.Panel).toBe(0);
+  });
+
+  it("leaves an email rejection with no booked interview at Applied", () => {
+    closedJob("Cold apply", "Rejected");
+    const reached = reachedOf();
+    expect(reached.Applied).toBe(1);
+    expect(reached.Screen).toBe(0);
+  });
+
+  it("still counts a rejection once, however far it got", () => {
+    const job = closedJob("Qualcomm", "Rejected");
+    upsertStageSchedule(db, job.id, "HM Interview", "2026-06-29");
+    const stats = getStats(db, TODAY);
+    expect(stats.funnel.find((f) => f.status === "HM Interview")!.reached).toBe(1);
+    expect(stats.terminal.find((t) => t.status === "Rejected")!.count).toBe(1);
+  });
+
+  it("does not let a booked step override a live card's current stage", () => {
+    // Backward correction must keep working: an active card sitting at
+    // Applied reports Applied, even if a later step was once booked.
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "MovedBack", role: "R", status: "Screen" }),
+    );
+    upsertStageSchedule(db, job.id, "HM Interview", "2026-07-16");
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Applied" }));
+    const reached = reachedOf();
+    expect(reached.Applied).toBe(1);
+    expect(reached.Screen).toBe(0);
+    expect(reached["HM Interview"]).toBe(0);
+  });
+
+  it("takes whichever of history and booked steps got further", () => {
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "Both", role: "R", status: "Applied" }),
+    );
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Screen" }));
+    upsertStageSchedule(db, job.id, "Panel", "2026-07-20");
+    updateJob(db, job.id, jobPatchSchema.parse({ status: "Rejected" }));
+    expect(reachedOf().Panel).toBe(1);
+  });
+
+  it("ignores a booked step for a job that never applied", () => {
+    // Applied is booked as a stage too — booking it IS the application date,
+    // so it can't imply more than Applied.
+    const job = createJob(
+      db,
+      jobCreateSchema.parse({ company: "Skipped early", role: "R", status: "Skipped" }),
+    );
+    expect(reachedOf().Applied).toBe(0);
+    expect(getStats(db, TODAY).funnel[0].reached).toBe(1);
+    upsertStageSchedule(db, job.id, "Applied", "2026-07-01");
+    expect(reachedOf().Applied).toBe(1);
   });
 });
