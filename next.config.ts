@@ -9,7 +9,13 @@ const nextConfig: NextConfig = {
   // their runtime assets and the standalone tracer loses them entirely.
   // pdfjs-dist must ship whole: its worker is imported dynamically at
   // runtime, invisible to the standalone tracer.
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "mammoth", "@napi-rs/canvas"],
+  serverExternalPackages: [
+    "pdf-parse",
+    "pdfjs-dist",
+    "mammoth",
+    "@napi-rs/canvas",
+    "better-sqlite3",
+  ],
 };
 
 export default nextConfig;
