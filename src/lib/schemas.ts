@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   DEFAULT_STATUS,
   DEFAULT_TIER,
+  EDD_STAGES,
   SCHEDULABLE_STAGES,
   STATUSES,
   TIERS,
@@ -90,6 +91,29 @@ export const activityCreateSchema = z.strictObject({
   note: z.string().trim().min(1, "Note is required"),
 });
 
+/** A YYYY-MM-DD string that is also a day on the calendar (no Feb 30). */
+const isCalendarDate = (value: string): boolean => {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+};
+
+export const eddReportSetSchema = z.strictObject({
+  stage: z.enum(EDD_STAGES),
+  reportedOn: z
+    .string()
+    .regex(ISO_DATE_RE, "Expected YYYY-MM-DD")
+    .refine(isCalendarDate, "Not a real calendar date"),
+});
+
+export const eddReportClearSchema = z.strictObject({
+  stage: z.enum(EDD_STAGES),
+});
+
 export const scheduleSetSchema = z.strictObject({
   stage: z.enum(SCHEDULABLE_STAGES),
   scheduledFor: z.string().regex(ISO_DATE_RE, "Expected YYYY-MM-DD"),
@@ -142,3 +166,4 @@ export type ListQuery = z.output<typeof listQuerySchema>;
 export type ContactCreate = z.output<typeof contactCreateSchema>;
 export type ContactPatch = z.output<typeof contactPatchSchema>;
 export type ActivityCreate = z.output<typeof activityCreateSchema>;
+export type EddReportSet = z.output<typeof eddReportSetSchema>;

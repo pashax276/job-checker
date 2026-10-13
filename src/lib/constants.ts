@@ -64,6 +64,12 @@ export const SCHEDULABLE_STAGES = [
 ] as const;
 export type SchedulableStage = (typeof SCHEDULABLE_STAGES)[number];
 
+// Stages that count as a work-search contact on an EDD certification. The same
+// set as the bookable steps today, but named apart: one answers "can this have
+// a calendar date", the other "can this be reported", and they needn't agree.
+export const EDD_STAGES = SCHEDULABLE_STAGES;
+export type EddStage = (typeof EDD_STAGES)[number];
+
 // Column order of the original Excel tracker. Export must emit exactly this
 // order; import accepts files with these headers.
 export const TRACKER_COLUMNS = [

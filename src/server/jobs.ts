@@ -7,6 +7,7 @@ import {
   statusHistory,
   type ActivityRecord,
   type ContactRecord,
+  type EddReportRecord,
   type JobRecord,
   type StageScheduleRecord,
   type StatusHistoryRecord,
@@ -15,6 +16,7 @@ import { toLocalIsoDate } from "@/lib/dates";
 import type { JobCreate, JobPatch, ListQuery } from "@/lib/schemas";
 import { listActivity } from "@/server/activity";
 import { listContacts } from "@/server/contacts";
+import { listEddReports } from "@/server/edd";
 import { listSchedule } from "@/server/schedule";
 
 export type JobDetail = JobRecord & {
@@ -22,6 +24,7 @@ export type JobDetail = JobRecord & {
   contacts: ContactRecord[];
   activityLog: ActivityRecord[];
   schedule: StageScheduleRecord[];
+  eddReports: EddReportRecord[];
 };
 
 export type { JobSource } from "@/lib/types";
@@ -89,6 +92,7 @@ export function getJob(db: DB, id: string): JobDetail | null {
     contacts: listContacts(db, id),
     activityLog: listActivity(db, id),
     schedule: listSchedule(db, id),
+    eddReports: listEddReports(db, id),
   };
 }
 

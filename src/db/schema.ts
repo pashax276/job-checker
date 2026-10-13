@@ -90,6 +90,23 @@ export const activity = sqliteTable("activity", {
   createdAt: text("created_at").notNull(),
 });
 
+// Which stages of a job were already reported to EDD as a work-search contact
+// on an unemployment certification. One row per stage, so an interview can be
+// reported separately from the application that preceded it.
+export const eddReports = sqliteTable(
+  "edd_reports",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    stage: text("stage").notNull(),
+    reportedOn: text("reported_on").notNull(), // YYYY-MM-DD it went on EDD
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [unique().on(t.jobId, t.stage)],
+);
+
 export const statusHistory = sqliteTable("status_history", {
   id: text("id").primaryKey(),
   jobId: text("job_id")
@@ -142,6 +159,7 @@ export type StatusHistoryRecord = typeof statusHistory.$inferSelect;
 export type ContactRecord = typeof contacts.$inferSelect;
 export type ActivityRecord = typeof activity.$inferSelect;
 export type StageScheduleRecord = typeof stageSchedule.$inferSelect;
+export type EddReportRecord = typeof eddReports.$inferSelect;
 export type DocumentRecord = typeof documents.$inferSelect;
 export type WatchlistRecord = typeof watchlist.$inferSelect;
 export type LeadRecord = typeof leads.$inferSelect;
