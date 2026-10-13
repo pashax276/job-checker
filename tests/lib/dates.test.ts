@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   daysInCurrentStage,
   daysSinceApplied,
+  formatStamp,
   isFollowUpDue,
+  localDayOf,
 } from "@/lib/dates";
 
 // Fixed local "today": 2026-07-17 at noon (noon avoids DST edge ambiguity).
@@ -61,5 +63,50 @@ describe("isFollowUpDue", () => {
 
   it("is false when the follow-up date is tomorrow", () => {
     expect(isFollowUpDue("2026-07-18", TODAY)).toBe(false);
+  });
+});
+
+describe("date-only stamps west of UTC", () => {
+  // new Date("2026-10-12") is UTC midnight, which is still the 11th in
+  // California. CI runs in UTC where that slip is invisible, so pin the zone.
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it("localDayOf keeps a date-only stamp as written", () => {
+    process.env.TZ = "America/Los_Angeles";
+    expect(localDayOf("2026-10-12")).toBe("2026-10-12");
+  });
+
+  it("localDayOf gives a timestamp's local day, not its UTC day", () => {
+    process.env.TZ = "America/Los_Angeles";
+    // 23:30 on the 12th in California is already the 13th in UTC
+    const lateEvening = new Date(2026, 9, 12, 23, 30, 0).toISOString();
+    expect(lateEvening.slice(0, 10)).toBe("2026-10-13");
+    expect(localDayOf(lateEvening)).toBe("2026-10-12");
+  });
+
+  it("formatStamp renders a date-only stamp as that calendar day", () => {
+    process.env.TZ = "America/Los_Angeles";
+    const expected = new Date(2026, 9, 12).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    expect(formatStamp("2026-10-12")).toBe(expected);
+  });
+
+  it("formatStamp renders a timestamp on its local day", () => {
+    process.env.TZ = "America/Los_Angeles";
+    const lateEvening = new Date(2026, 9, 12, 23, 30, 0);
+    expect(formatStamp(lateEvening.toISOString())).toBe(
+      lateEvening.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+    );
   });
 });

@@ -1,4 +1,4 @@
-import type { Status, Tier } from "@/lib/constants";
+import type { EddStage, Status, Tier } from "@/lib/constants";
 
 /** How a job entered the tracker. Defined here (not in the server module)
  * so client components can render it without importing server code. */
@@ -29,6 +29,9 @@ export interface Job {
   jdSnapshot: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Stages already reported to EDD. Only the list endpoint fills this in;
+   * the job detail carries the full reports as `eddReports` instead. */
+  eddStages?: EddStage[];
 }
 
 export interface DocumentMeta {
@@ -59,6 +62,16 @@ export interface ActivityEntry {
   id: string;
   jobId: string;
   note: string;
+  createdAt: string;
+}
+
+/** One stage of a job reported to EDD as a work-search contact. */
+export interface EddReport {
+  id: string;
+  jobId: string;
+  stage: EddStage;
+  /** YYYY-MM-DD the report went on EDD. */
+  reportedOn: string;
   createdAt: string;
 }
 
@@ -93,6 +106,7 @@ export interface JobDetail extends Job {
   contacts: Contact[];
   activityLog: ActivityEntry[];
   schedule: StageScheduleEntry[];
+  eddReports: EddReport[];
 }
 
 export interface OverdueItem {

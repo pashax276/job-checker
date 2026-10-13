@@ -24,6 +24,13 @@ export function daysSinceApplied(
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A full ISO timestamp or a date-only string as a Date. Date-only strings
+ * are read as local midnight — new Date("YYYY-MM-DD") would make them UTC
+ * midnight, which is the previous day anywhere west of Greenwich. */
+function parseStamp(stamp: string): Date {
+  return DATE_ONLY_RE.test(stamp) ? parseLocalDate(stamp) : new Date(stamp);
+}
+
 /** Whole days since the last status change; clamped at 0 for future stamps.
  * Accepts full ISO timestamps and date-only strings (parsed as local dates —
  * new Date("YYYY-MM-DD") would read them as UTC midnight, off by one day). */
@@ -31,11 +38,7 @@ export function daysInCurrentStage(
   lastStatusChangeAt: string,
   today: Date,
 ): number {
-  const changed = startOfLocalDay(
-    DATE_ONLY_RE.test(lastStatusChangeAt)
-      ? parseLocalDate(lastStatusChangeAt)
-      : new Date(lastStatusChangeAt),
-  );
+  const changed = startOfLocalDay(parseStamp(lastStatusChangeAt));
   const diff = startOfLocalDay(today).getTime() - changed.getTime();
   return Math.max(0, Math.round(diff / MS_PER_DAY));
 }
@@ -46,6 +49,20 @@ export function toLocalIsoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** The local calendar day (YYYY-MM-DD) a timestamp or date-only stamp is on. */
+export function localDayOf(stamp: string): string {
+  return DATE_ONLY_RE.test(stamp) ? stamp : toLocalIsoDate(new Date(stamp));
+}
+
+/** Short local date for a timeline row, e.g. "Oct 12, 2026". */
+export function formatStamp(stamp: string): string {
+  return parseStamp(stamp).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 /** True when a follow-up date exists and is today or earlier. */
