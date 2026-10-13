@@ -140,8 +140,13 @@ test.describe("smoke", () => {
     }>;
     const target = jobs.find((j) => j.company === "Platform Science")!;
 
+    // a week out, not a fixed day: Checklist only lists steps still ahead, so
+    // a hardcoded date turned this test red the morning after it passed
+    const nextWeek = new Date(Date.now() + 7 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
     await request.put(`/api/jobs/${target.id}/schedule`, {
-      data: { stage: "Screen", scheduledFor: "2026-08-01" },
+      data: { stage: "Screen", scheduledFor: nextWeek },
     });
     await request.post(`/api/jobs/${target.id}/schedule/questions`, {
       data: { stage: "Screen", text: "Is this remote?" },
