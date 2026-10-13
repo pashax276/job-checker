@@ -199,6 +199,22 @@ describe("readJobExtras", () => {
     ]);
   });
 
+  it("keeps a report whose createdAt is not a timestamp, without trusting the value", () => {
+    // createdAt only orders same-day rows; a bad one isn't worth losing the
+    // report over, but it mustn't reach the database either
+    const extras = readJobExtras(
+      exportedJob({
+        eddReports: [
+          { stage: "Applied", reportedOn: "2026-08-24", createdAt: "yesterday" },
+        ],
+      }),
+    )!;
+    expect(extras.eddReports).toEqual([
+      { stage: "Applied", reportedOn: "2026-08-24", createdAt: null },
+    ]);
+    expect(extras.droppedEddReports).toBe(0);
+  });
+
   it("drops malformed EDD reports and reports the count", () => {
     const extras = readJobExtras(
       exportedJob({

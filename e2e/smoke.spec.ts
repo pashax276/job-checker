@@ -422,6 +422,12 @@ test.describe("smoke", () => {
     await saved;
 
     await expect(removeApplied).toBeVisible();
+    // the backfilled date must not linger: the next stage marked would
+    // otherwise be saved a week in the past without anyone choosing that
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles",
+    }).format(new Date());
+    await expect(page.getByLabel("Date reported to EDD")).toHaveValue(today);
     const timelineRow = page
       .getByRole("listitem")
       .filter({ hasText: "Reported to EDD" });

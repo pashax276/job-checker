@@ -135,7 +135,9 @@ const prepStageSchema = z.object({
 // about unknown keys — a backup may carry fields a newer version added.
 const eddReportSchema = z.object({
   ...eddReportSetSchema.shape,
-  createdAt: nullableString.optional(),
+  // Only orders same-day timeline rows, so a value that isn't a timestamp
+  // costs the report nothing — it is dropped and restore stamps a fresh one.
+  createdAt: z.iso.datetime().nullish().catch(null),
 });
 
 function newQuestionId(index: number): string {

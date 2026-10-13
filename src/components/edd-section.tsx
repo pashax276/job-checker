@@ -97,7 +97,14 @@ export function EddSection({ jobId, status, reports }: EddSectionProps) {
           if (!reportedOn) return;
           setEddReport.mutate(
             { stage, reportedOn },
-            { onSuccess: () => setPicked(null) },
+            {
+              // Back to the defaults. A backfilled date left in the field
+              // would silently date the next stage marked a week ago too.
+              onSuccess: () => {
+                setPicked(null);
+                setReportedOn(toLocalIsoDate(new Date()));
+              },
+            },
           );
         }}
       >
