@@ -4,6 +4,51 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.12.0] - 2026-10-12
+
+### Added
+- **EDD work-search reports.** Each job now records which of its stages were
+  already reported to California EDD on an unemployment certification, and on
+  what day. The tracker had nowhere to put that, so avoiding a double report -
+  or a missed one - came down to memory.
+
+  A job holds at most one report per stage, so an interview can be reported
+  separately from the application before it. Reportable stages are Applied,
+  Screen, Assessment, HM Interview, Panel and Offer; Evaluating, Skipped and
+  Rejected aren't work-search contacts and are refused at the API. Marking a
+  stage that is already reported moves its date instead of adding a second
+  row.
+
+  The job drawer gains an "EDD reports" section: a chip per stage (reported
+  ones filled, dated, with a remove button), and a stage, date and "Mark
+  reported" control that defaults to the job's current status and today. The
+  date is editable so earlier reports can be backfilled.
+
+  Reports appear in the drawer's timeline as "Reported to EDD" rows on the
+  day they were filed, not the day they were marked - a backfilled report
+  lands a week back rather than at the top. The merge moved out of the
+  component into `buildTimeline`, which orders by local day first and
+  recorded moment second.
+
+  A job whose *current* stage is already reported carries an EDD badge on its
+  board card and in the table's status cell, so the ones still to report can
+  be picked out without opening each drawer.
+
+  JSON export embeds the reports and import restores them, upserting on
+  job + stage. The import summary names how many came back and how many
+  malformed entries were skipped, in keeping with 1.11.0's rule that a restore
+  never loses data quietly. xlsx and csv keep the fixed 11 columns.
+
+  New: `PUT /api/jobs/:id/edd` `{ stage, reportedOn }` and
+  `DELETE /api/jobs/:id/edd?stage=`; `GET /api/jobs` rows gain `eddStages`
+  and the job detail gains `eddReports`. Migration `0010_edd-reports`.
+
+### Fixed
+- **The Prep checklist smoke test had been failing since 2026-08-02.** It
+  booked a step on a hardcoded 2026-08-01, and the Checklist view only lists
+  steps still ahead, so the test went red the day after. It now books a week
+  out from whenever it runs.
+
 ## [1.11.0] - 2026-08-26
 
 ### Fixed

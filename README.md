@@ -34,6 +34,9 @@ the `tracker-data` volume and survives `docker compose down && up`.
   inline status change), Inbox (discovery leads), Settings.
 - **Keyboard:** `/` focus search · `n` new job · `1–4` switch views.
 - **DUE badges** appear everywhere a job's follow-up date is today or earlier.
+- **EDD reports:** in a job's drawer, mark each stage you reported to EDD as
+  a work-search contact. Reports show in the timeline, and an EDD badge on the
+  board and table marks jobs whose current stage is already reported.
 - **Export:** topbar → Excel (original column order), JSON, or an `.ics`
   calendar of upcoming follow-ups.
 - **Optimistic updates:** board/table mutations apply instantly and roll back
@@ -101,6 +104,7 @@ boundary.
 ```
 GET/POST      /api/jobs           list (status, tier, q, dueOnly) / create
 GET/PATCH/DEL /api/jobs/:id       detail incl. statusHistory / partial update / delete
+PUT/DELETE    /api/jobs/:id/edd   mark {stage, reportedOn} / clear ?stage= as reported to EDD
 POST          /api/import         multipart xlsx|csv|json, mode=preview|commit + per-row decisions
 GET           /api/export         ?format=xlsx|csv|json  GET /api/export/ics
 GET           /api/stats          dashboard aggregates
