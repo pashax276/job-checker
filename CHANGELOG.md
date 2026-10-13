@@ -44,6 +44,35 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
   and the job detail gains `eddReports`. Migration `0010_edd-reports`.
 
 ### Fixed
+- **Discovery fetched 287 postings and matched none.** Reported from a run
+  that read "287 fetched · 0 matched" with a board error for `avalabs`. Three
+  separate causes, found by replaying the poll with the app's own filters:
+
+  The title gate only recognised a discipline written *before* "Engineer".
+  Babylist posts its SRE opening as "Staff Engineer, Site Reliability", which
+  the gate took for a team name and rejected. "Site Reliability" now counts
+  wherever it sits in the title, the same way the bare "SRE" already did;
+  seniority and the manager/product cut still apply.
+
+  The location classifier treated "City, ST" as a named place but not as US
+  evidence, so PrizePicks' "Atlanta, GA preferred, Remote" - a senior SRE
+  role, AWS in the description - was filed as remote *outside* the US and
+  dropped. A state's postal code after a comma now counts as US evidence for
+  a remote role. A few codes double as countries (IL, IN, DE), so a country
+  named in the same string overrides it; "Remote - Berlin, DE" with nothing
+  else to go on reads as US and reaches the Inbox, on the view that a lead to
+  dismiss costs less than a real one dropped unseen. Non-remote "City, ST"
+  is still an office that isn't San Diego.
+
+  Ava Labs left Greenhouse: `boards/avalabs` returns 404 and their postings
+  are at `jobs.ashbyhq.com/ava-labs`. The seed now points there. An existing
+  install keeps its old row - change it in Settings (remove Ava Labs, add it
+  back as Ashby / `ava-labs`).
+
+  Against the same boards the poll now yields three leads instead of none.
+  "Alerts: 0 fetched" in that run was not a fault: no Google Alerts feed URLs
+  are configured, so that source has nothing to read.
+
 - **The Prep checklist smoke test had been failing since 2026-08-02.** It
   booked a step on a hardcoded 2026-08-01, and the Checklist view only lists
   steps still ahead, so the test went red the day after. It now books a week

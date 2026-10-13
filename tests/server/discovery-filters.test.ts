@@ -62,6 +62,16 @@ describe("titleMatches", () => {
     // ...but a plain IC title is untouched
     ["Senior Site Reliability Engineer", true],
     ["Staff Infrastructure Engineer", true],
+
+    // The discipline can trail the role: Babylist posts its SRE opening as
+    // "Staff Engineer, Site Reliability", which the "discipline before
+    // Engineer" rule read as a team name and turned away.
+    ["Staff Engineer, Site Reliability", true],
+    ["Senior Engineer - Site Reliability", true],
+    ["Senior Software Engineer (Site Reliability)", true],
+    // seniority and the non-IC cut still apply to it
+    ["Engineer, Site Reliability", false],
+    ["Senior Manager, Site Reliability", false],
   ])("%s -> %s", (title, expected) => {
     expect(titleMatches(title)).toBe(expected);
   });
@@ -110,6 +120,24 @@ describe("classifyLocation", () => {
     // ...but "Remote - US" must not be dragged in by a state name
     ["Remote - US", "Remote-US"],
     ["Remote, Washington", "Remote-US"],
+
+    // "City, ST" is how most US postings name a place, and a state code is
+    // as much US evidence as a spelled-out state. PrizePicks' remote SRE role
+    // ("Atlanta, GA preferred, Remote") was being filed as remote-abroad.
+    ["Atlanta, GA preferred, Remote", "Remote-US"],
+    ["Remote - Denver, CO", "Remote-US"],
+    ["Austin, TX (Remote)", "Remote-US"],
+    ["Remote; Boston, MA or New York, NY", "Remote-US"],
+    // without "remote" it is still an office that isn't San Diego
+    ["Atlanta, GA", "Onsite-elsewhere"],
+    // a code that isn't a US state is no evidence
+    ["Remote - Toronto, ON", "Remote-other"],
+    ["Remote - London, UK", "Remote-other"],
+    // a few codes double as countries (IL, IN, DE); a named country settles it
+    ["Remote - Tel Aviv, IL, Israel", "Remote-other"],
+    ["Remote - Bengaluru, IN, India", "Remote-other"],
+    // lower-case words that merely look like codes don't count
+    ["Remote, in Europe", "Remote-other"],
   ])("%s -> %s", (location, expected) => {
     expect(classifyLocation(location)).toBe(expected);
   });

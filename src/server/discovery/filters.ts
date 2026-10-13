@@ -23,7 +23,10 @@ const ROLE_NOUN_RE =
   /\b(Platform|DevOps|SRE|Site Reliability|Infrastructure|Production|Cloud|Systems)\b[\w+.,\-() ]{0,22}\bEngineer\b/i;
 
 // "Staff SRE" needs no "Engineer" — the acronym already is the job title.
-const STANDALONE_ROLE_RE = /\b(SRE|DevOps)\b/i;
+// Spelled out it is just as unambiguous, and it has to be accepted wherever
+// it sits: "Staff Engineer, Site Reliability" puts the discipline after the
+// role, where the rule above takes it for a team name.
+const STANDALONE_ROLE_RE = /\b(SRE|DevOps|Site Reliability)\b/i;
 
 // Otherwise the title is some flavour of "Software Engineer" and the domain
 // word is really a team name. That still counts when the team is core infra…
@@ -95,6 +98,11 @@ const US_STATE_RE = new RegExp(
   "i",
 );
 
+// "Atlanta, GA" — a comma, then a state's postal code. Upper-case only, or
+// "Remote, in Europe" would read as Indiana.
+const US_STATE_CODE_RE =
+  /,\s*(AL|AK|AZ|AR|CA|CO|CT|DC|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/;
+
 /**
  * Location classification mirrors the owner's manual discipline — never guess.
  * San Diego and US-remote are the two acceptable outcomes; a location that
@@ -113,7 +121,13 @@ export function classifyLocation(location: string | null): LocationClass {
     /\bus\b/i.test(location.replace(/[()\-–—,;|/]/g, " ")) ||
     // "Remote, Washington" is remote *within* the US — a state name is
     // US evidence, and only consulted when the role is already remote.
-    US_STATE_RE.test(location);
+    US_STATE_RE.test(location) ||
+    // So is a state code after a city, which is how most US postings name a
+    // place. A few codes double as countries (IL, IN, DE), so a country
+    // named alongside overrides it. "Remote - Berlin, DE" with no country
+    // spelled out does read as US and lands in the Inbox: a lead to dismiss
+    // costs less than a real one dropped unseen.
+    (US_STATE_CODE_RE.test(location) && !NON_US_PLACE_RE.test(location));
   if (remote && us) return "Remote-US";
   const placed =
     NAMED_PLACE_RE.test(location) ||

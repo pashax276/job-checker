@@ -114,7 +114,8 @@ const WATCHLIST_SEED = [
   { displayName: "Platform Science", atsType: "greenhouse", boardSlug: "platformscience" },
   { displayName: "Babylist", atsType: "greenhouse", boardSlug: "babylist" },
   { displayName: "PrizePicks", atsType: "greenhouse", boardSlug: "prizepicks" },
-  { displayName: "Ava Labs", atsType: "greenhouse", boardSlug: "avalabs" },
+  // moved off Greenhouse (boards/avalabs now 404s) to jobs.ashbyhq.com/ava-labs
+  { displayName: "Ava Labs", atsType: "ashby", boardSlug: "ava-labs" },
   { displayName: "Talkiatry", atsType: "ashby", boardSlug: "talkiatry" },
 ] as const;
 

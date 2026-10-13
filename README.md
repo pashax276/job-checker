@@ -47,8 +47,8 @@ the `tracker-data` volume and survives `docker compose down && up`.
 Two legitimate sources — no scraping:
 
 1. **ATS watchlist polling** — public JSON endpoints for Greenhouse, Lever,
-   and Ashby boards. Seeded with Platform Science, Babylist, PrizePicks,
-   Ava Labs (Greenhouse) and Talkiatry (Ashby); manage the list in Settings.
+   and Ashby boards. Seeded with Platform Science, Babylist, PrizePicks
+   (Greenhouse), Ava Labs and Talkiatry (Ashby); manage the list in Settings.
    Filters: title must match `(Senior|Staff|Sr.)` **and**
    `(Platform|DevOps|SRE|Site Reliability|Infrastructure)`, description must
    mention AWS, exclusions for Junior/Intern/Entry-Level. Location is
