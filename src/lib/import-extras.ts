@@ -1,11 +1,16 @@
 import { z } from "zod";
-import { SCHEDULABLE_STAGES, type SchedulableStage } from "@/lib/constants";
+import {
+  SCHEDULABLE_STAGES,
+  type EddStage,
+  type SchedulableStage,
+} from "@/lib/constants";
 import type { PrepQuestion } from "@/lib/prep-notes";
+import { eddReportSetSchema } from "@/lib/schemas";
 
 /**
  * The JSON export carries far more per job than the 11 flat tracker columns
- * xlsx/csv share: booked prep steps, embedded resume/cover-letter content, the
- * JD snapshot, the skill match, and the structured comp split. Import maps
+ * xlsx/csv share: booked prep steps, EDD reports, embedded resume/cover-letter
+ * content, the JD snapshot, the skill match, and the structured comp split. Import maps
  * every format through the same column-keyed TrackerRow, so those fields have
  * nowhere to ride — restoring a backup used to silently drop all of them.
  *
@@ -37,6 +42,13 @@ export interface ImportedPrepStage {
   questions: PrepQuestion[];
 }
 
+export interface ImportedEddReport {
+  stage: EddStage;
+  reportedOn: string;
+  /** Null in a hand-written backup; restore stamps it then. */
+  createdAt: string | null;
+}
+
 export interface JobExtras {
   id: string | null;
   source: "manual" | "import" | "discovery" | null;
@@ -54,6 +66,9 @@ export interface JobExtras {
   prep: ImportedPrepStage[];
   /** Prep entries that weren't booked steps — surfaced, never swallowed. */
   droppedPrep: number;
+  eddReports: ImportedEddReport[];
+  /** EDD entries with an unreportable stage or a bad date — also surfaced. */
+  droppedEddReports: number;
 }
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -114,6 +129,13 @@ const prepStageSchema = z.object({
   prepNotes: nullableString.optional(),
   outcome: z.union([z.literal("passed"), z.literal("failed")]).nullish(),
   questions: z.unknown().optional(),
+});
+
+// Same stage and calendar-date rules the API enforces, minus its strictness
+// about unknown keys — a backup may carry fields a newer version added.
+const eddReportSchema = z.object({
+  ...eddReportSetSchema.shape,
+  createdAt: nullableString.optional(),
 });
 
 function newQuestionId(index: number): string {
@@ -196,6 +218,23 @@ export function readJobExtras(entry: unknown): JobExtras | null {
     });
   }
 
+  // Absent on backups that predate the feature — that's "none", not an error.
+  const rawEdd = Array.isArray(entry.eddReports) ? entry.eddReports : [];
+  const eddReports: ImportedEddReport[] = [];
+  let droppedEddReports = 0;
+  for (const candidate of rawEdd) {
+    const report = eddReportSchema.safeParse(candidate);
+    if (!report.success) {
+      droppedEddReports += 1;
+      continue;
+    }
+    eddReports.push({
+      stage: report.data.stage,
+      reportedOn: report.data.reportedOn,
+      createdAt: report.data.createdAt ?? null,
+    });
+  }
+
   return {
     id: base.id ?? null,
     source: base.source ?? null,
@@ -212,6 +251,8 @@ export function readJobExtras(entry: unknown): JobExtras | null {
     coverLetter: parseDocument(entry.coverLetter),
     prep,
     droppedPrep,
+    eddReports,
+    droppedEddReports,
   };
 }
 

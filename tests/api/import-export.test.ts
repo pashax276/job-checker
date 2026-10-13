@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getDb, runMigrations } from "@/db/client";
 import { jobCreateSchema, listQuerySchema } from "@/lib/schemas";
 import { createDocument, getDocument } from "@/server/documents";
+import { listEddReports, setEddReport } from "@/server/edd";
 import { createJob, listJobs, updateJob } from "@/server/jobs";
 import { addQuestion, listSchedule, upsertStageSchedule } from "@/server/schedule";
 import * as importRoute from "@/app/api/import/route";
@@ -269,6 +270,18 @@ describe("JSON export → import is a lossless backup round-trip", () => {
     upsertStageSchedule(db, id, "Screen", "2026-08-27", "# Thursday\nThree beats.");
     addQuestion(db, id, "Screen", "How do you place level and step?");
     addQuestion(db, id, "Screen", "Walk me through your CV", "interviewer");
+    setEddReport(
+      db,
+      id,
+      { stage: "Applied", reportedOn: "2026-08-24" },
+      new Date("2026-08-24T17:00:00Z"),
+    );
+    setEddReport(
+      db,
+      id,
+      { stage: "Screen", reportedOn: "2026-08-31" },
+      new Date("2026-08-31T17:00:00Z"),
+    );
     return id;
   }
 
@@ -324,6 +337,58 @@ describe("JSON export → import is a lossless backup round-trip", () => {
     }>;
     expect(questions).toHaveLength(2);
     expect(questions[1].askedBy).toBe("interviewer");
+  });
+
+  it("restores which stages were reported to EDD, and when", async () => {
+    await seedRichJob();
+    const backup = await exportJson();
+    const raw = getDb().$client;
+    raw.prepare("DELETE FROM status_history").run();
+    raw.prepare("DELETE FROM jobs").run();
+    raw.prepare("DELETE FROM documents").run();
+    expect(raw.prepare("SELECT COUNT(*) c FROM edd_reports").get()).toMatchObject({ c: 0 });
+
+    const body = await importJson(backup);
+    expect(body.data.created).toBe(1);
+    expect(body.data.eddReportsRestored).toBe(2);
+    expect(body.data.eddReportsSkipped).toBe(0);
+
+    const restored = listJobs(getDb(), listQuerySchema.parse({}))[0];
+    expect(
+      listEddReports(getDb(), restored.id).map((r) => ({
+        stage: r.stage,
+        reportedOn: r.reportedOn,
+        createdAt: r.createdAt,
+      })),
+    ).toEqual([
+      {
+        stage: "Applied",
+        reportedOn: "2026-08-24",
+        createdAt: "2026-08-24T17:00:00.000Z",
+      },
+      {
+        stage: "Screen",
+        reportedOn: "2026-08-31",
+        createdAt: "2026-08-31T17:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("surfaces EDD entries it could not restore instead of dropping them quietly", async () => {
+    const json = JSON.stringify([
+      {
+        company: "PostHog",
+        role: "SRE",
+        eddReports: [
+          { stage: "Applied", reportedOn: "2026-08-24" },
+          { stage: "Applied", reportedOn: "last tuesday" },
+        ],
+      },
+    ]);
+    const body = await importJson(json);
+    expect(body.data.created).toBe(1);
+    expect(body.data.eddReportsRestored).toBe(1);
+    expect(body.data.eddReportsSkipped).toBe(1);
   });
 
   it("restores the JD snapshot, skill match, comp fields and resume link", async () => {
@@ -413,5 +478,6 @@ describe("JSON export → import is a lossless backup round-trip", () => {
     expect(body.data.created).toBe(1);
     expect(body.data.prepStepsRestored).toBe(0);
     expect(body.data.documentsRestored).toBe(0);
+    expect(body.data.eddReportsRestored).toBe(0);
   });
 });

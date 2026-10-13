@@ -3,6 +3,7 @@ import { createDb, migrateDb, type DB } from "@/db/client";
 import type { JobExtras } from "@/lib/import-extras";
 import { jobCreateSchema } from "@/lib/schemas";
 import { getDocument } from "@/server/documents";
+import { listEddReports, setEddReport } from "@/server/edd";
 import { getJob } from "@/server/jobs";
 import { createJob } from "@/server/jobs";
 import { applyJobExtras } from "@/server/restore";
@@ -47,6 +48,14 @@ const extras = (over: Partial<JobExtras> = {}): JobExtras => ({
     },
   ],
   droppedPrep: 0,
+  eddReports: [
+    {
+      stage: "Applied",
+      reportedOn: "2026-08-24",
+      createdAt: "2026-08-24T17:00:00.000Z",
+    },
+  ],
+  droppedEddReports: 0,
   ...over,
 });
 
@@ -102,7 +111,13 @@ describe("applyJobExtras", () => {
 
   it("reports what it restored", () => {
     const counts = applyJobExtras(db, jobId, extras());
-    expect(counts).toEqual({ documents: 1, prepSteps: 1, prepSkipped: 0 });
+    expect(counts).toEqual({
+      documents: 1,
+      prepSteps: 1,
+      prepSkipped: 0,
+      eddReports: 1,
+      eddSkipped: 0,
+    });
   });
 
   it("counts prep entries the parser could not use", () => {
@@ -110,10 +125,54 @@ describe("applyJobExtras", () => {
     expect(counts.prepSkipped).toBe(3);
   });
 
+  it("restores EDD reports with the day and moment they were first marked", () => {
+    applyJobExtras(db, jobId, extras());
+    const reports = listEddReports(db, jobId);
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      jobId,
+      stage: "Applied",
+      reportedOn: "2026-08-24",
+      createdAt: "2026-08-24T17:00:00.000Z",
+    });
+  });
+
+  it("stamps a restored EDD report that carries no createdAt", () => {
+    applyJobExtras(
+      db,
+      jobId,
+      extras({
+        eddReports: [{ stage: "Offer", reportedOn: "2026-09-15", createdAt: null }],
+      }),
+    );
+    const [report] = listEddReports(db, jobId);
+    expect(report.stage).toBe("Offer");
+    expect(Number.isNaN(Date.parse(report.createdAt))).toBe(false);
+  });
+
+  it("lets the backup's date win for a stage that is already marked", () => {
+    setEddReport(db, jobId, { stage: "Applied", reportedOn: "2026-08-20" });
+    applyJobExtras(db, jobId, extras());
+    const reports = listEddReports(db, jobId);
+    expect(reports).toHaveLength(1);
+    expect(reports[0].reportedOn).toBe("2026-08-24");
+  });
+
+  it("counts EDD entries the parser could not use", () => {
+    const counts = applyJobExtras(
+      db,
+      jobId,
+      extras({ eddReports: [], droppedEddReports: 2 }),
+    );
+    expect(counts.eddReports).toBe(0);
+    expect(counts.eddSkipped).toBe(2);
+  });
+
   it("is idempotent — a second apply neither duplicates nor errors", () => {
     applyJobExtras(db, jobId, extras());
     const counts = applyJobExtras(db, jobId, extras());
     expect(listSchedule(db, jobId)).toHaveLength(1);
+    expect(listEddReports(db, jobId)).toHaveLength(1);
     expect(counts.documents).toBe(0); // already present, not re-inserted
     expect(getJob(db, jobId)!.resumeId).toBe("doc-1");
   });
@@ -158,12 +217,19 @@ describe("applyJobExtras", () => {
     applyJobExtras(
       db,
       jobId,
-      extras({ skillMatch: null, jdSnapshot: null, resume: null, prep: [] }),
+      extras({
+        skillMatch: null,
+        jdSnapshot: null,
+        resume: null,
+        prep: [],
+        eddReports: [],
+      }),
     );
     const job = getJob(db, jobId)!;
     expect(job.skillMatch).toBe('{"score":0.75}');
     expect(job.jdSnapshot).toBe("Long JD text");
     expect(job.resumeId).toBe("doc-1");
     expect(listSchedule(db, jobId)).toHaveLength(1);
+    expect(listEddReports(db, jobId)).toHaveLength(1);
   });
 });

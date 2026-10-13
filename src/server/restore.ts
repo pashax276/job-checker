@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { DB } from "@/db/client";
-import { documents, jobs, stageSchedule } from "@/db/schema";
+import { documents, eddReports, jobs, stageSchedule } from "@/db/schema";
 import type { ImportedDocument, JobExtras } from "@/lib/import-extras";
 
 /** The handle drizzle hands a transaction callback — narrower than DB. */
@@ -11,12 +11,16 @@ export interface RestoreCounts {
   documents: number;
   prepSteps: number;
   prepSkipped: number;
+  eddReports: number;
+  eddSkipped: number;
 }
 
 export const EMPTY_RESTORE: RestoreCounts = {
   documents: 0,
   prepSteps: 0,
   prepSkipped: 0,
+  eddReports: 0,
+  eddSkipped: 0,
 };
 
 export function addRestoreCounts(
@@ -27,6 +31,8 @@ export function addRestoreCounts(
     documents: a.documents + b.documents,
     prepSteps: a.prepSteps + b.prepSteps,
     prepSkipped: a.prepSkipped + b.prepSkipped,
+    eddReports: a.eddReports + b.eddReports,
+    eddSkipped: a.eddSkipped + b.eddSkipped,
   };
 }
 
@@ -144,10 +150,32 @@ export function applyJobExtras(
       prepSteps += 1;
     }
 
+    let restoredEdd = 0;
+    for (const report of extras.eddReports) {
+      tx.insert(eddReports)
+        .values({
+          id: randomUUID(),
+          jobId,
+          stage: report.stage,
+          reportedOn: report.reportedOn,
+          createdAt: report.createdAt ?? new Date().toISOString(),
+        })
+        // One report per stage per job — the backup's date wins for a stage
+        // that is already marked, the row is not doubled.
+        .onConflictDoUpdate({
+          target: [eddReports.jobId, eddReports.stage],
+          set: { reportedOn: report.reportedOn },
+        })
+        .run();
+      restoredEdd += 1;
+    }
+
     return {
       documents: restoredDocuments,
       prepSteps,
       prepSkipped: extras.droppedPrep,
+      eddReports: restoredEdd,
+      eddSkipped: extras.droppedEddReports,
     };
   });
 }

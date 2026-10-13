@@ -4,6 +4,7 @@ import type { ExperienceEntry } from "@/lib/resume-parse";
 import type { Job } from "@/lib/types";
 import type { DocumentKind } from "@/server/documents";
 import { getDocument } from "@/server/documents";
+import { listEddReports } from "@/server/edd";
 import { listSchedule, parseQuestions } from "@/server/schedule";
 import type { PrepQuestion } from "@/lib/prep-notes";
 
@@ -27,10 +28,17 @@ export interface ExportedPrepStage {
   questions: PrepQuestion[];
 }
 
+export interface ExportedEddReport {
+  stage: string;
+  reportedOn: string;
+  createdAt: string;
+}
+
 export interface ExportedJob extends Job {
   resume: ExportedDocument | null;
   coverLetter: ExportedDocument | null;
   prep: ExportedPrepStage[];
+  eddReports: ExportedEddReport[];
 }
 
 function toExportedDocument(record: DocumentRecord): ExportedDocument {
@@ -50,9 +58,9 @@ function toExportedDocument(record: DocumentRecord): ExportedDocument {
 /**
  * A job as it should appear in a full JSON export/backup — unlike xlsx/csv
  * (the flat original tracker column layout), JSON embeds the referenced
- * resume/cover letter content and every booked stage's prep notes +
- * structured questions, since those live in separate tables the plain
- * spreadsheet export never touched.
+ * resume/cover letter content, every booked stage's prep notes + structured
+ * questions, and which stages were reported to EDD, since those live in
+ * separate tables the plain spreadsheet export never touched.
  */
 export function buildExportJob(db: DB, job: Job): ExportedJob {
   const resume = job.resumeId ? getDocument(db, job.resumeId) : null;
@@ -66,11 +74,17 @@ export function buildExportJob(db: DB, job: Job): ExportedJob {
     outcome: row.outcome,
     questions: parseQuestions(row.questions),
   }));
+  const eddReports = listEddReports(db, job.id).map((row) => ({
+    stage: row.stage,
+    reportedOn: row.reportedOn,
+    createdAt: row.createdAt,
+  }));
   return {
     ...job,
     resume: resume ? toExportedDocument(resume) : null,
     coverLetter: coverLetter ? toExportedDocument(coverLetter) : null,
     prep,
+    eddReports,
   };
 }
 

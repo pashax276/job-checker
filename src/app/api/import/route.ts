@@ -33,6 +33,9 @@ export interface ImportCommitResult {
   prepStepsRestored: number;
   /** Prep entries that weren't booked steps, so couldn't be restored. */
   prepSkipped: number;
+  eddReportsRestored: number;
+  /** EDD entries with an unreportable stage or a bad date. */
+  eddReportsSkipped: number;
 }
 
 async function rowsFromFile(file: File): Promise<TrackerRow[]> {
@@ -158,5 +161,7 @@ function commitImport(
     documentsRestored: restored.documents,
     prepStepsRestored: restored.prepSteps,
     prepSkipped: restored.prepSkipped,
+    eddReportsRestored: restored.eddReports,
+    eddReportsSkipped: restored.eddSkipped,
   };
 }

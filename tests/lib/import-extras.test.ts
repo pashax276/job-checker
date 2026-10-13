@@ -48,6 +48,18 @@ const exportedJob = (over: Record<string, unknown> = {}) => ({
       ],
     },
   ],
+  eddReports: [
+    {
+      stage: "Applied",
+      reportedOn: "2026-08-24",
+      createdAt: "2026-08-24T17:00:00.000Z",
+    },
+    {
+      stage: "Screen",
+      reportedOn: "2026-08-31",
+      createdAt: "2026-08-31T17:00:00.000Z",
+    },
+  ],
   ...over,
 });
 
@@ -157,6 +169,57 @@ describe("readJobExtras", () => {
     const extras = readJobExtras(entry)!;
     expect(extras.prep).toEqual([]);
     expect(extras.droppedPrep).toBe(2);
+  });
+
+  it("carries EDD reports with the day each stage was reported", () => {
+    const extras = readJobExtras(exportedJob())!;
+    expect(extras.eddReports).toEqual([
+      {
+        stage: "Applied",
+        reportedOn: "2026-08-24",
+        createdAt: "2026-08-24T17:00:00.000Z",
+      },
+      {
+        stage: "Screen",
+        reportedOn: "2026-08-31",
+        createdAt: "2026-08-31T17:00:00.000Z",
+      },
+    ]);
+    expect(extras.droppedEddReports).toBe(0);
+  });
+
+  it("accepts a hand-written EDD report that has no createdAt", () => {
+    const extras = readJobExtras(
+      exportedJob({
+        eddReports: [{ stage: "Offer", reportedOn: "2026-09-15" }],
+      }),
+    )!;
+    expect(extras.eddReports).toEqual([
+      { stage: "Offer", reportedOn: "2026-09-15", createdAt: null },
+    ]);
+  });
+
+  it("drops malformed EDD reports and reports the count", () => {
+    const extras = readJobExtras(
+      exportedJob({
+        eddReports: [
+          { stage: "Evaluating", reportedOn: "2026-08-24" }, // not reportable
+          { stage: "Applied", reportedOn: "8/24/2026" }, // not ISO
+          { stage: "Applied", reportedOn: "2026-02-30" }, // not a real day
+          "Applied",
+          { stage: "Screen", reportedOn: "2026-08-31" },
+        ],
+      }),
+    )!;
+    expect(extras.eddReports.map((r) => r.stage)).toEqual(["Screen"]);
+    expect(extras.droppedEddReports).toBe(4);
+  });
+
+  it("reads a backup that predates EDD reports as having none", () => {
+    const { eddReports: _omitted, ...older } = exportedJob();
+    const extras = readJobExtras(older)!;
+    expect(extras.eddReports).toEqual([]);
+    expect(extras.droppedEddReports).toBe(0);
   });
 
   it("returns null for a flat spreadsheet row (the csv/xlsx path)", () => {

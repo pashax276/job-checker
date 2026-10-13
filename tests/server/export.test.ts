@@ -5,6 +5,7 @@ import { createDb, migrateDb, type DB } from "@/db/client";
 import { jobCreateSchema, listQuerySchema } from "@/lib/schemas";
 import type { Job } from "@/lib/types";
 import { createDocument } from "@/server/documents";
+import { setEddReport } from "@/server/edd";
 import { buildExportJobs } from "@/server/export";
 import { createJob, listJobs, updateJob } from "@/server/jobs";
 import { addQuestion, upsertStageSchedule } from "@/server/schedule";
@@ -104,5 +105,40 @@ describe("buildExportJobs", () => {
     expect(exported.prep[0].questions).toHaveLength(2);
     expect(exported.prep[0].questions[0].askedBy).toBe("me");
     expect(exported.prep[0].questions[1].askedBy).toBe("interviewer");
+  });
+
+  it("exports an empty EDD list for a job that was never reported", () => {
+    const [exported] = exportedJobs();
+    expect(exported.eddReports).toEqual([]);
+  });
+
+  it("embeds EDD reports so a backup keeps which stages were reported", () => {
+    setEddReport(
+      db,
+      jobId,
+      { stage: "Screen", reportedOn: "2026-10-12" },
+      new Date("2026-10-12T19:00:00Z"),
+    );
+    setEddReport(
+      db,
+      jobId,
+      { stage: "Applied", reportedOn: "2026-10-05" },
+      new Date("2026-10-05T18:00:00Z"),
+    );
+
+    const [exported] = exportedJobs();
+    // only what a restore needs — row ids are regenerated, jobId is implied
+    expect(exported.eddReports).toEqual([
+      {
+        stage: "Applied",
+        reportedOn: "2026-10-05",
+        createdAt: "2026-10-05T18:00:00.000Z",
+      },
+      {
+        stage: "Screen",
+        reportedOn: "2026-10-12",
+        createdAt: "2026-10-12T19:00:00.000Z",
+      },
+    ]);
   });
 });
