@@ -216,7 +216,9 @@ describe("readJobExtras", () => {
   });
 
   it("reads a backup that predates EDD reports as having none", () => {
-    const { eddReports: _omitted, ...older } = exportedJob();
+    const older = Object.fromEntries(
+      Object.entries(exportedJob()).filter(([key]) => key !== "eddReports"),
+    );
     const extras = readJobExtras(older)!;
     expect(extras.eddReports).toEqual([]);
     expect(extras.droppedEddReports).toBe(0);

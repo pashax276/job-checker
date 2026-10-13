@@ -14,7 +14,7 @@ import {
 import { Columns, GraduationCap, Rows3 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { DueBadge, SourceIcon, TierBadge } from "@/components/badges";
+import { DueBadge, EddBadge, SourceIcon, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,6 +42,7 @@ import {
   type Tier,
 } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
+import { isCurrentStageReported } from "@/lib/edd";
 import {
   matchesSkillFilter,
   parseStoredSkillMatch,
@@ -164,6 +165,9 @@ function JobCard({
       <span className="mt-1.5 flex items-center gap-1.5">
         <TierBadge tier={job.priorityTier} />
         {due ? <DueBadge /> : null}
+        {isCurrentStageReported(job.status, job.eddStages) ? (
+          <EddBadge stage={job.status} />
+        ) : null}
         {stale ? (
           <span
             title={`${agingDays} days in ${job.status}`}

@@ -74,6 +74,8 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           documentsRestored?: number;
           prepStepsRestored?: number;
           prepSkipped?: number;
+          eddReportsRestored?: number;
+          eddReportsSkipped?: number;
         } | null;
         error: string | null;
       };
@@ -91,17 +93,25 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           documentsRestored = 0,
           prepStepsRestored = 0,
           prepSkipped = 0,
+          eddReportsRestored = 0,
+          eddReportsSkipped = 0,
         } = body.data;
         const restored = [
           prepStepsRestored ? `${prepStepsRestored} prep step(s)` : null,
           documentsRestored ? `${documentsRestored} document(s)` : null,
-        ].filter(Boolean);
+          eddReportsRestored ? `${eddReportsRestored} EDD report(s)` : null,
+        ].filter((part): part is string => part !== null);
         toast.success(
           `Import complete: ${created} created, ${updated} updated, ${skipped} skipped` +
             (errors.length ? `, ${errors.length} failed` : "") +
-            (restored.length ? ` — restored ${restored.join(" and ")}` : "") +
+            (restored.length
+              ? ` — restored ${new Intl.ListFormat("en", { type: "conjunction" }).format(restored)}`
+              : "") +
             (prepSkipped
               ? `; ${prepSkipped} prep entr(y/ies) weren't booked steps and were skipped`
+              : "") +
+            (eddReportsSkipped
+              ? `; ${eddReportsSkipped} EDD entr(y/ies) had an unknown stage or bad date and were skipped`
               : ""),
         );
         await qc.invalidateQueries();

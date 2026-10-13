@@ -8,7 +8,7 @@ import {
 import { useRef } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
-import type { Status } from "@/lib/constants";
+import type { EddStage, Status } from "@/lib/constants";
 import type { PrepQuestion } from "@/lib/prep-notes";
 import type { Job, JobDetail, JobsQuery, Stats } from "@/lib/types";
 
@@ -187,6 +187,26 @@ export function useJobExtras(jobId: string | null) {
     onSuccess: refresh,
     onError,
   });
+  // The list rows carry eddStages for the board/table badge, so an EDD change
+  // refreshes every jobs query, not just this job's detail.
+  const refreshEdd = () => void qc.invalidateQueries({ queryKey: jobKeys.all });
+  const setEddReport = useMutation({
+    mutationFn: (input: { stage: EddStage; reportedOn: string }) =>
+      api(`/api/jobs/${jobId}/edd`, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: refreshEdd,
+    onError,
+  });
+  const clearEddReport = useMutation({
+    mutationFn: (stage: EddStage) =>
+      api(`/api/jobs/${jobId}/edd?stage=${encodeURIComponent(stage)}`, {
+        method: "DELETE",
+      }),
+    onSuccess: refreshEdd,
+    onError,
+  });
 
   return {
     addContact,
@@ -197,6 +217,8 @@ export function useJobExtras(jobId: string | null) {
     setSchedule,
     clearSchedule,
     refreshSkillMatch,
+    setEddReport,
+    clearEddReport,
   };
 }
 

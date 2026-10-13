@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowRight, Copy, ExternalLink, MessageSquare, Trash2 } from "lucide-react";
+import {
+  ArrowRight,
+  Copy,
+  ExternalLink,
+  Landmark,
+  MessageSquare,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,6 +33,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { EddSection } from "@/components/edd-section";
 import { JobFormFields } from "@/components/job-form-fields";
 import { StageJourney } from "@/components/stage-journey";
 import { useMutation } from "@tanstack/react-query";
@@ -40,6 +48,7 @@ import { api } from "@/lib/api-client";
 import {
   daysInCurrentStage,
   daysSinceApplied,
+  formatStamp,
   isFollowUpDue,
   toLocalIsoDate,
 } from "@/lib/dates";
@@ -53,26 +62,13 @@ import {
 } from "@/lib/job-form";
 import { cn } from "@/lib/utils";
 import { jobPatchSchema } from "@/lib/schemas";
+import { buildTimeline } from "@/lib/timeline";
 import { SCHEDULABLE_STAGES } from "@/lib/constants";
-import type {
-  ActivityEntry,
-  Contact,
-  JobDetail,
-  StageScheduleEntry,
-  StatusHistoryEntry,
-} from "@/lib/types";
+import type { Contact, JobDetail, StageScheduleEntry } from "@/lib/types";
 
 interface JobDrawerProps {
   jobId: string | null;
   onClose: () => void;
-}
-
-function formatStamp(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 const CONTACT_ROLES = [
@@ -522,26 +518,11 @@ function FollowUpEmailSection({ job }: { job: JobDetail }) {
   );
 }
 
-type TimelineItem =
-  | { kind: "status"; ts: string; status: StatusHistoryEntry }
-  | { kind: "note"; ts: string; note: ActivityEntry };
-
 function Timeline({ job }: { job: JobDetail }) {
   const { addActivity, removeActivity } = useJobExtras(job.id);
   const [draft, setDraftNote] = useState("");
 
-  const items: TimelineItem[] = [
-    ...job.statusHistory.map<TimelineItem>((entry) => ({
-      kind: "status",
-      ts: entry.changedAt,
-      status: entry,
-    })),
-    ...job.activityLog.map<TimelineItem>((entry) => ({
-      kind: "note",
-      ts: entry.createdAt,
-      note: entry,
-    })),
-  ].sort((a, b) => b.ts.localeCompare(a.ts));
+  const items = buildTimeline(job);
 
   return (
     <div className="space-y-2">
@@ -593,6 +574,18 @@ function Timeline({ job }: { job: JobDetail }) {
                 <span className="text-muted-foreground">created as</span>
               )}
               <StatusBadge status={item.status.toStatus} />
+            </li>
+          ) : item.kind === "edd" ? (
+            <li
+              key={`e-${item.report.id}`}
+              className="flex items-center gap-2 text-xs"
+            >
+              <span className="font-data w-24 shrink-0 text-muted-foreground">
+                {formatStamp(item.ts)}
+              </span>
+              <Landmark className="size-3 shrink-0 text-primary" aria-hidden />
+              <span className="text-muted-foreground">Reported to EDD</span>
+              <StatusBadge status={item.report.stage} />
             </li>
           ) : (
             <li
@@ -833,6 +826,19 @@ export function JobDrawer({ jobId, onClose }: JobDrawerProps) {
                   Follow-up email
                 </h3>
                 <FollowUpEmailSection job={job} />
+              </div>
+              <div className="space-y-2 p-4 pb-0">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  EDD reports
+                </h3>
+                {/* keyed by job: the drawer stays mounted across jobs, and a
+                    stage picked for one must not carry over to the next */}
+                <EddSection
+                  key={job.id}
+                  jobId={job.id}
+                  status={job.status}
+                  reports={job.eddReports}
+                />
               </div>
               <div className="space-y-2 p-4">
                 <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

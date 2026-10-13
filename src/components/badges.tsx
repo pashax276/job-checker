@@ -119,3 +119,24 @@ export function DueBadge({ className }: { className?: string }) {
     </span>
   );
 }
+
+/** Marks a job whose current stage is already reported to EDD. */
+export function EddBadge({
+  stage,
+  className,
+}: {
+  stage: Status;
+  className?: string;
+}) {
+  return (
+    <span
+      title={`${stage} stage reported to EDD`}
+      className={cn(
+        "inline-flex items-center rounded-sm bg-primary/10 border border-primary/40 px-1.5 py-px font-data text-[11px] font-medium leading-4 text-primary",
+        className,
+      )}
+    >
+      EDD
+    </span>
+  );
+}

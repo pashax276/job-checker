@@ -24,7 +24,7 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
-import { DueBadge, SourceIcon, TierBadge } from "@/components/badges";
+import { DueBadge, EddBadge, SourceIcon, TierBadge } from "@/components/badges";
 import { JobDrawer } from "@/components/job-drawer";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +62,7 @@ import {
   type Tier,
 } from "@/lib/constants";
 import { isFollowUpDue } from "@/lib/dates";
+import { isCurrentStageReported } from "@/lib/edd";
 import type { Job } from "@/lib/types";
 
 const SAVED_VIEWS_KEY = "table-saved-views";
@@ -224,7 +225,17 @@ function TableView() {
       {
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => <InlineStatus job={row.original} />,
+        cell: ({ row }) => (
+          <span className="flex items-center gap-1.5">
+            <InlineStatus job={row.original} />
+            {isCurrentStageReported(
+              row.original.status,
+              row.original.eddStages,
+            ) ? (
+              <EddBadge stage={row.original.status} />
+            ) : null}
+          </span>
+        ),
       },
       {
         accessorKey: "dateApplied",

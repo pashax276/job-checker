@@ -373,4 +373,71 @@ test.describe("smoke", () => {
       unlinkSync(jsonPath);
     }
   });
+
+  test.describe("EDD reports", () => {
+    // West of UTC on purpose: a report date is a bare YYYY-MM-DD, and reading
+    // one as UTC midnight shows the previous day there. CI's own zone is UTC,
+    // where that slip can't be seen.
+    test.use({ timezoneId: "America/Los_Angeles", locale: "en-US" });
+
+    test("mark a stage in the drawer, see it in the timeline and on the table row", async ({
+    page,
+    request,
+  }) => {
+    // its own job, so the status other tests move around can't change which
+    // stage this one reports
+    const created = await request.post("/api/jobs", {
+      data: { company: "EDD Report Co", role: "Senior SRE", status: "Applied" },
+    });
+    expect(created.ok()).toBe(true);
+
+    await page.goto("/table");
+    const row = page.getByRole("row").filter({ hasText: "EDD Report Co" });
+    await expect(row).toHaveCount(1);
+    await expect(row.getByText("EDD", { exact: true })).toHaveCount(0);
+
+    await row.getByText("Senior SRE").click();
+    await expect(page.getByText("EDD reports", { exact: true })).toBeVisible();
+    // the stage on offer is the one the job is in right now
+    await expect(page.getByRole("combobox", { name: "EDD stage" })).toContainText(
+      "Applied",
+    );
+    const removeApplied = page.getByRole("button", {
+      name: "Remove EDD report for Applied",
+    });
+    await expect(removeApplied).toHaveCount(0);
+
+    // backfill: reported a week ago, marked today
+    await page.getByLabel("Date reported to EDD").fill("2026-10-05");
+    const saved = page.waitForResponse(
+      (res) =>
+        res.url().includes("/edd") && res.request().method() === "PUT" && res.ok(),
+    );
+    await page.getByRole("button", { name: "Mark reported" }).click();
+    await saved;
+
+    await expect(removeApplied).toBeVisible();
+    const timelineRow = page
+      .getByRole("listitem")
+      .filter({ hasText: "Reported to EDD" });
+    await expect(timelineRow).toHaveCount(1);
+    await expect(timelineRow).toContainText("Applied");
+    await expect(timelineRow).toContainText("Oct 5, 2026");
+
+    // the list badge appears without a reload, and survives one
+    await page.keyboard.press("Escape");
+    await expect(row.getByText("EDD", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(row.getByText("EDD", { exact: true })).toBeVisible();
+
+    // removing the report takes it out of the timeline and off the row
+    await row.getByText("Senior SRE").click();
+    await expect(removeApplied).toBeVisible();
+    await removeApplied.click();
+    await expect(removeApplied).toHaveCount(0);
+    await expect(timelineRow).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(row.getByText("EDD", { exact: true })).toHaveCount(0);
+    });
+  });
 });
